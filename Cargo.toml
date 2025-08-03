@@ -1,7 +1,7 @@
 [package]
-name = "eframe_template"
+name = "zerouni_portfolio"
 version = "0.1.0"
-authors = ["Emil Ernerfeldt <emil.ernerfeldt@gmail.com>"]
+authors = ["Zayne Muhs <Zayne.Muhs-Oretta@rice.edu>"]
 edition = "2024"
 include = ["LICENSE-APACHE", "LICENSE-MIT", "**/*.rs", "Cargo.toml"]
 rust-version = "1.85"
@@ -24,6 +24,7 @@ log = "0.4.27"
 
 # You only need serde if you want app persistence:
 serde = { version = "1.0.219", features = ["derive"] }
+egui_extras = { version = "0.32.0", features = ["all_loaders"] }
 
 # native:
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
