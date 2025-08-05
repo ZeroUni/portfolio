@@ -51,6 +51,7 @@ fn main() {
                 canvas,
                 web_options,
                 Box::new(|cc| {
+                    log::debug!("Starting eframe app on web");
                     egui_extras::install_image_loaders(&cc.egui_ctx);
                     Ok(Box::new(zerouni_portfolio::TemplateApp::new(cc)))
                 }),

@@ -1,4 +1,6 @@
-use egui::{vec2, Scene, Style};
+use std::vec;
+
+use egui::{include_image, panel::TopBottomSide, vec2, AtomExt, Scene, Style};
 
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
@@ -10,6 +12,7 @@ pub struct TemplateApp {
     value: f32,
     #[serde(skip)]
     image_path: String,
+    #[serde(skip)]
     scene_rect: egui::Rect,
 }
 
@@ -20,7 +23,7 @@ impl Default for TemplateApp {
             label: "Hello World!".to_owned(),
             value: 2.7,
             image_path: "/test_img.png".to_owned(),
-            scene_rect: egui::Rect::ZERO, // egui::Scene will initialize this to something valid
+            scene_rect: egui::Rect::from_min_size(egui::pos2(0.0, 0.0), egui::vec2(1920.0, 1080.0)),
         }
     }
 }
@@ -147,23 +150,58 @@ impl eframe::App for TemplateApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         // Put your widgets into a `SidePanel`, `TopBottomPanel`, `CentralPanel`, `Window` or `Area`.
         // For inspiration and more examples, go to https://emilk.github.io/egui
+        let screen_width = ctx.screen_rect().width();
+        let screen_size: ScreenSize = if screen_width < 640.0 {
+            ScreenSize::Small
+        } else if screen_width < 768.0 {
+            ScreenSize::Medium
+        } else {
+            ScreenSize::Large
+        };
 
-        egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
-            // The top panel is often a good place for a menu bar:
+        let panel_location = match screen_size {
+            ScreenSize::Small => TopBottomSide::Bottom,
+            ScreenSize::Medium => TopBottomSide::Top,
+            ScreenSize::Large => TopBottomSide::Top,
+        };
 
+        let theme_preference: egui::Theme = ctx.theme();
+        let theme_text = match theme_preference {
+            egui::Theme::Light => "🌖",
+            egui::Theme::Dark => "🌞",
+        };
+        
+        let menu_frame = egui::Frame {
+            inner_margin: egui::Margin {
+                left: 12,
+                right: 14,
+                top: 6,
+                bottom: 8,
+            },
+            outer_margin: egui::Margin::same(0),
+            stroke: egui::Stroke::new(1.0, ctx.style().visuals.window_stroke.color),
+            fill: ctx.style().visuals.panel_fill,
+            ..Default::default()
+        };
+        egui::TopBottomPanel::new(panel_location, "top_panel").frame(menu_frame).show(ctx, |ui| {
             egui::MenuBar::new().ui(ui, |ui| {
                 // NOTE: no File->Quit on web pages!
-                let is_web = cfg!(target_arch = "wasm32");
-                if !is_web {
-                    ui.menu_button("File", |ui| {
-                        if ui.button("Quit").clicked() {
-                            ctx.send_viewport_cmd(egui::ViewportCommand::Close);
-                        }
-                    });
-                    ui.add_space(16.0);
-                }
-
-                egui::widgets::global_theme_preference_buttons(ui);
+                ui.add_space(8.0);
+                ui.add(
+                    egui::Image::new(include_image!("../assets/croissant.png")).maintain_aspect_ratio(false)
+                    .fit_to_exact_size(vec2(48.0, 48.0)).corner_radius(32.0)
+                );
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    ui.add_space(10.0);
+                    ui.style_mut().override_font_id = Some(egui::FontId::new(32.0, egui::FontFamily::Proportional));
+                    if ui.button(theme_text).clicked() {
+                        ctx.set_theme(if theme_preference == egui::Theme::Light {
+                            egui::Theme::Dark
+                        } else {
+                            egui::Theme::Light
+                        });
+                    }
+                });
             });
         });
 
@@ -174,27 +212,33 @@ impl eframe::App for TemplateApp {
                 .stroke(egui::Stroke::NONE)
                 .show(ui, |ui| {
                     let scene: Scene = Scene::new()
-                        .max_inner_size([1920.0, 1080.0])
+                        .max_inner_size([300.0, 300.0])
                         .zoom_range(1.0..=5.0);
 
                     let scene_rect_snapshot = self.scene_rect.clone();
+                    let scroll_area = egui::ScrollArea::both().max_width(ui.available_width() - 20.0).min_scrolled_height(ui.available_height()).auto_shrink([false, false]).scroll([false, true]);
 
-                    scene.show(ui, &mut self.scene_rect, |ui| {
+
+                    scroll_area.show(ui, |ui| {
                             // The central panel the region left after adding TopPanel's and SidePanel's
-                            let left = ui.clip_rect().left();
-                            let top = ui.clip_rect().top();
+                            ui.set_min_height(ui.available_height());
+                            ui.set_width(ui.available_rect_before_wrap().width());
+                            let left = ui.min_rect().left();
+                            let top = ui.min_rect().top();
                             let size_horizontal = ui.clip_rect().width();
-                            let size_vertical = ui.clip_rect().height();
                             let label = egui::Label::new(egui::RichText::new("This should show at the top left").font(egui::FontId::new(22.0, egui::FontFamily::Proportional))).halign(egui::Align::LEFT);
+                            let mut top_offset = top;
+                            let left_offset = left;
                             let title = ui.put(
                                 egui::Rect::from_min_size(
-                                    egui::pos2(left, top),
-                                    vec2(250.0_f32.clamp(100.0, size_horizontal / 2.0), 10.0),
+                                    egui::pos2(left_offset, top_offset),
+                                    vec2(250.0_f32.min(size_horizontal / 2.0).max(100.0), 10.0),
                                 ),
                                 label,
                             );
+                            top_offset += title.rect.height() + 5.0;
 
-                            // ui.label(format!("{:#?}", ui.clip_rect()));
+                            // ui.label(format!("{:#?}", ui.clip_rect())); 
                             // ui.label(format!("{:#?}", scene_rect_snapshot));
 
                             let debug_layout = egui::Label::new(format!("Scene Rect: {:#?}\nClip Rect: {:#?}", scene_rect_snapshot, ui.clip_rect())).halign(egui::Align::LEFT).extend();
@@ -202,13 +246,14 @@ impl eframe::App for TemplateApp {
 
                             let rect_debugs = ui.put(
                                 egui::Rect::from_min_size(
-                                    egui::pos2(left, top + title.rect.height() + 5.0),
+                                    egui::pos2(left_offset, top_offset),
                                     vec2(debug_preferred_size.clamp(100.0, size_horizontal / 2.0), 10.0),
                                 ),
                                 egui::Label::new(format!("Scene Rect: {:#?}\nClip Rect: {:#?}", scene_rect_snapshot, ui.clip_rect())).halign(egui::Align::LEFT),
                             );
 
                             ui.horizontal(|ui| {
+                                ui.set_max_size(vec2(500.0_f32.min(size_horizontal / 2.0).max(200.0), 100.0));
                                 ui.label("Write something: ");
                                 ui.text_edit_singleline(&mut self.label);
                             });
@@ -218,7 +263,13 @@ impl eframe::App for TemplateApp {
                                 self.value += 1.0;
                             }
 
-                            ui.separator();
+                            ui.put(
+                                egui::Rect::from_min_size(
+                                    egui::pos2(left_offset, top + title.rect.height() + rect_debugs.rect.height() + 10.0),
+                                    vec2(size_horizontal, 1.0),
+                                ),
+                                egui::Separator::default().spacing(size_horizontal),
+                            );
 
                             ui.add(egui::github_link_file!(
                                 "https://github.com/emilk/eframe_template/blob/main/",
@@ -257,4 +308,10 @@ fn powered_by_egui_and_eframe(ui: &mut egui::Ui) {
         );
         ui.label(".");
     });
+}
+
+enum ScreenSize {
+    Small,
+    Medium,
+    Large,
 }
