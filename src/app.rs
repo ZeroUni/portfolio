@@ -169,8 +169,8 @@ impl TemplateApp {
         .into();
     
         // Primary background color
-        let primary_bg_color = Color32::from_rgb(189, 212, 231);
-        let secondary_bg_color = Color32::from_rgb(134, 147, 171);
+        let primary_bg_color = Color32::from_rgb(202, 233, 255);
+        let secondary_bg_color = Color32::from_rgb(27, 73, 101);
     
         // Configure visuals
         style.visuals = Visuals::light();
@@ -180,7 +180,7 @@ impl TemplateApp {
             noninteractive: egui::style::WidgetVisuals {
                 bg_fill: secondary_bg_color,
                 bg_stroke: Stroke::new(1.0, Color32::from_rgb(99, 112, 116)),
-                fg_stroke: Stroke::new(1.0, Color32::from_rgb(99, 112, 116)),
+                fg_stroke: Stroke::new(1.0, Color32::from_rgb(95, 168, 211)),
                 corner_radius: CornerRadius::same(4),
                 weak_bg_fill: Color32::from_gray(32),
                 expansion: 0.0,
@@ -190,7 +190,7 @@ impl TemplateApp {
                 bg_stroke: Stroke::new(1.0, Color32::from_rgb(99, 112, 116)),
                 fg_stroke: Stroke::new(1.0, Color32::from_rgb(33, 34, 39)),
                 corner_radius: CornerRadius::same(4),
-                weak_bg_fill: Color32::from_rgb(141, 159, 135),
+                weak_bg_fill: Color32::from_rgb(190, 233, 232),
                 expansion: 0.0,
             },
             hovered: egui::style::WidgetVisuals {
