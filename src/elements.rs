@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use egui::{text_selection::visuals, Atom, AtomKind, AtomLayout, AtomLayoutResponse, Color32, CornerRadius, Frame, Image, IntoAtoms, Response, Sense, Stroke, TextWrapMode, TextureHandle, Ui, Vec2, Widget, WidgetInfo, WidgetText, WidgetType};
+use egui::{text_selection::visuals, Atom, AtomKind, AtomLayout, AtomLayoutResponse, Color32, CornerRadius, Frame, Image, IntoAtoms, Margin, Response, Sense, Stroke, TextWrapMode, TextureHandle, Ui, Vec2, Widget, WidgetInfo, WidgetText, WidgetType};
 
 pub struct Project {
     slug: String,
@@ -22,7 +22,8 @@ pub struct ButtonWithUnderline<'a> {
     min_size: Vec2,
     corner_radius: Option<CornerRadius>,
     selected: bool,
-    image_tint_follows_text_color: bool,
+    inset: Vec2,
+    hover_inset: Vec2,
 }
 
 impl<'a> ButtonWithUnderline<'a> {
@@ -36,9 +37,10 @@ impl<'a> ButtonWithUnderline<'a> {
             min_size: Vec2::ZERO,
             corner_radius: None,
             selected: false,
-            image_tint_follows_text_color: false,
             color: Color32::from_black_alpha(0),
             underline_color: None,
+            inset: Vec2::ZERO,
+            hover_inset: Vec2::splat(-2.0),
         }
     }
 
@@ -150,18 +152,6 @@ impl<'a> ButtonWithUnderline<'a> {
         self.corner_radius(corner_radius)
     }
 
-    /// If true, the tint of the image is multiplied by the widget text color.
-    ///
-    /// This makes sense for images that are white, that should have the same color as the text color.
-    /// This will also make the icon color depend on hover state.
-    ///
-    /// Default: `false`.
-    #[inline]
-    pub fn image_tint_follows_text_color(mut self, image_tint_follows_text_color: bool) -> Self {
-        self.image_tint_follows_text_color = image_tint_follows_text_color;
-        self
-    }
-
     /// Show some text on the right side of the button, in weak color.
     ///
     /// Designed for menu buttons, for setting a keyboard shortcut text (e.g. `Ctrl+S`).
@@ -196,6 +186,31 @@ impl<'a> ButtonWithUnderline<'a> {
         self
     }
 
+    /// Set the color of the underline.
+    #[inline]
+    pub fn underline_color(mut self, underline_color: impl Into<Color32>) -> Self {
+        self.underline_color = Some(underline_color.into());
+        self
+    }
+
+    /// Set the inset of the button.
+    #[inline]
+    pub fn inset(mut self, inset: impl Into<Vec2>) -> Self {
+        self.inset = inset.into();
+        if self.hover_inset == Vec2::splat(-2.0) {
+            // If hover_inset is not set, use the same inset for hover
+            self.hover_inset = self.inset;
+        }
+        self
+    }
+
+    /// Set the inset of the button when hovered.
+    #[inline]
+    pub fn hover_inset(mut self, hover_inset: impl Into<Vec2>) -> Self {
+        self.hover_inset = hover_inset.into();
+        self
+    }
+
     /// Show the button and return a [`AtomLayoutResponse`] for painting custom contents.
     pub fn atom_ui(self, ui: &mut Ui) -> AtomLayoutResponse {
         let ButtonWithUnderline {
@@ -207,9 +222,10 @@ impl<'a> ButtonWithUnderline<'a> {
             mut min_size,
             corner_radius,
             selected,
-            image_tint_follows_text_color,
             underline_color,
-            color
+            color,
+            inset,
+            hover_inset,
         } = self;
 
         let text = layout.text().map(String::from);
@@ -227,6 +243,9 @@ impl<'a> ButtonWithUnderline<'a> {
             .min_size(min_size)
             .allocate(ui);
 
+        let focus = prepared.response.hovered() || prepared.response.is_pointer_button_down_on() || prepared.response.has_focus();
+
+        let mut inner_margin;
         let response = if ui.is_rect_visible(prepared.response.rect) {
             let visuals = ui.style().interact_selectable(&prepared.response, selected);
 
@@ -234,14 +253,8 @@ impl<'a> ButtonWithUnderline<'a> {
                 has_frame_margin
             } else {
                 has_frame_margin
-                    && (prepared.response.hovered()
-                        || prepared.response.is_pointer_button_down_on()
-                        || prepared.response.has_focus())
+                    && focus
             };
-
-            if image_tint_follows_text_color {
-                prepared.map_images(|image| image.tint(visuals.text_color()));
-            }
 
             prepared.fallback_text_color = visuals.text_color();
 
@@ -258,13 +271,18 @@ impl<'a> ButtonWithUnderline<'a> {
                     .stroke(stroke)
                     .corner_radius(corner_radius.unwrap_or(visuals.corner_radius));
             };
-
+            inner_margin = prepared.frame.inner_margin.clone();
             prepared.paint(ui)
         } else {
+            inner_margin = Margin::default();
             AtomLayoutResponse::empty(prepared.response)
         };
-
-        // (&self).paint_underline(ui, &response.response, &prepared.frame);
+        
+        paint_underline(ui, &response.response, inner_margin, underline_color, if focus {
+            hover_inset
+        } else {
+            inset
+        });
 
         response.response.widget_info(|| {
             if let Some(text) = &text {
@@ -276,30 +294,32 @@ impl<'a> ButtonWithUnderline<'a> {
 
         response
     }
+}
 
-    // fn paint_underline(
-    //     &self,
-    //     ui: &mut Ui,
-    //     response: &Response,
-    //     frame: &Frame,
-    // ) {
-    //     if let Some(underline_color) = self.underline_color {
-    //         let rect = response.rect;
-    //         let stroke = Stroke::new(1.0, underline_color);
-    //         ui.painter().line_segment(
-    //             [rect.left_bottom() + Vec2::new(frame.inner_margin.left as f32, 0.0), rect.right_bottom() + Vec2::new(-frame.inner_margin.right as f32, 0.0)],
-    //             stroke,
-    //         );
-    //     } else {
-    //         let visuals = ui.visuals();
-    //         let color = visuals.text_color();
-    //         let stroke = Stroke::new(1.0, color);
-    //         ui.painter().line_segment(
-    //             [response.rect.left_bottom(), response.rect.right_bottom()],
-    //             stroke,
-    //         );
-    //     }
-    // }
+fn paint_underline(
+    ui: &mut Ui,
+    response: &Response,
+    margins: Margin,
+    underline_color: Option<Color32>,
+    inset: Vec2,
+) {
+    if let Some(underline_color) = underline_color {
+        let rect = response.rect;
+        let stroke = Stroke::new(1.0, underline_color);
+        ui.painter().line_segment(
+            [rect.left_bottom() + Vec2::new((margins.left as f32) + inset.x, 0.0), rect.right_bottom() + Vec2::new(-(margins.right as f32 + inset.y), 0.0)],
+            stroke,
+        );
+    } else {
+        let visuals = ui.visuals();
+        let color = visuals.text_color();
+        let rect = response.rect;
+        let stroke = Stroke::new(1.0, color);
+        ui.painter().line_segment(
+            [rect.left_bottom() + Vec2::new((margins.left as f32) + inset.x, 0.0), rect.right_bottom() + Vec2::new(-(margins.right as f32 + inset.y), 0.0)],
+            stroke,
+        );
+    }
 }
 
 impl Widget for ButtonWithUnderline<'_> {

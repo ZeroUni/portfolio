@@ -1,7 +1,9 @@
-use std::vec;
+use std::{collections::HashMap, vec};
 
-use egui::{include_image, panel::TopBottomSide, vec2, AtomExt, ImageSource, Scene, Style};
+use egui::{include_image, panel::TopBottomSide, vec2, AtomExt, Color32, Id, ImageSource, Scene, Style, Theme};
 use web_sys::window;
+
+use crate::elements::ButtonWithUnderline;
 
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
@@ -17,6 +19,8 @@ pub struct TemplateApp {
     scene_rect: egui::Rect,
     #[serde(skip)]
     root_url: Option<String>,
+    #[serde(skip)]
+    animations: HashMap<Id, (AnimateDirection, f32)>, // Map of animations by their ID, as well as their direction and progress
 }
 
 impl Default for TemplateApp {
@@ -28,6 +32,7 @@ impl Default for TemplateApp {
             image_path: "/test_img.png".to_owned(),
             scene_rect: egui::Rect::from_min_size(egui::pos2(0.0, 0.0), egui::vec2(1920.0, 1080.0)),
             root_url: get_base_url(),
+            animations: HashMap::new(),
         }
     }
 }
@@ -37,8 +42,10 @@ impl TemplateApp {
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
         // This is also where you can customize the look and feel of egui using
         // `cc.egui_ctx.set_visuals` and `cc.egui_ctx.set_fonts`.
-        let style = Self::get_dark_theme_style(&cc.egui_ctx);
-        cc.egui_ctx.set_style(style);
+        let dark_style = Self::get_dark_theme_style(&cc.egui_ctx);
+        cc.egui_ctx.set_style_of(Theme::Dark, dark_style);
+        let light_style = Self::get_light_theme_style(&cc.egui_ctx);
+        cc.egui_ctx.set_style_of(Theme::Light, light_style);
 
         // Load previous app state (if any).
         // Note that you must enable the `persistence` feature for this to work.
@@ -73,20 +80,20 @@ impl TemplateApp {
         // Configure visuals
         style.visuals = Visuals::dark();
         style.visuals.extreme_bg_color = primary_bg_color;
-        style.visuals.override_text_color = Some(Color32::LIGHT_GRAY);
+        style.visuals.override_text_color = Some(Color32::from_rgb(240, 235, 216));
         style.visuals.widgets = Widgets {
             noninteractive: egui::style::WidgetVisuals {
                 bg_fill: primary_bg_color,
                 bg_stroke: Stroke::new(1.0, Color32::from_gray(60)),
-                fg_stroke: Stroke::new(1.0, Color32::LIGHT_GRAY),
+                fg_stroke: Stroke::new(1.0, Color32::from_rgb(240, 235, 216)),
                 corner_radius: CornerRadius::same(4),
                 weak_bg_fill: Color32::from_gray(32),
                 expansion: 0.0,
             },
             inactive: egui::style::WidgetVisuals {
-                bg_fill: primary_bg_color,
-                bg_stroke: Stroke::new(1.0, Color32::from_gray(75)),
-                fg_stroke: Stroke::new(1.0, Color32::LIGHT_GRAY),
+                bg_fill: Color32::from_rgb(19, 41, 61),
+                bg_stroke: Stroke::new(1.0, Color32::from_rgb(22, 50, 79)),
+                fg_stroke: Stroke::new(1.0, Color32::from_rgb(240, 235, 216)),
                 corner_radius: CornerRadius::same(4),
                 weak_bg_fill: Color32::from_gray(32),
                 expansion: 0.0,
@@ -102,7 +109,7 @@ impl TemplateApp {
             active: egui::style::WidgetVisuals {
                 bg_fill: Color32::from_rgb(60, 60, 60),
                 bg_stroke: Stroke::new(1.0, Color32::WHITE),
-                fg_stroke: Stroke::new(1.0, Color32::WHITE),
+                fg_stroke: Stroke::new(1.0, Color32::from_rgb(240, 235, 216)),
                 corner_radius: CornerRadius::same(4),
                 weak_bg_fill: Color32::from_gray(32),
                 expansion: 2.0,
@@ -110,7 +117,7 @@ impl TemplateApp {
             open: egui::style::WidgetVisuals {
                 bg_fill: Color32::from_rgb(40, 40, 40),
                 bg_stroke: Stroke::new(1.0, Color32::WHITE),
-                fg_stroke: Stroke::new(1.0, Color32::WHITE),
+                fg_stroke: Stroke::new(1.0, Color32::from_rgb(240, 235, 216)),
                 corner_radius: CornerRadius::same(4),
                 weak_bg_fill: Color32::from_gray(32),
                 expansion: 0.0,
@@ -132,6 +139,101 @@ impl TemplateApp {
             color: Color32::from_black_alpha(128),
         };
         style.visuals.window_fill = primary_bg_color;
+        style.visuals.window_stroke = Stroke::new(1.0, Color32::from_gray(60));
+        style.visuals.panel_fill = primary_bg_color;
+    
+        // Spacing settings
+        //style.spacing.item_spacing = egui::vec2(8.0, 6.0);
+        style.spacing.window_margin = egui::Margin::same(4);
+        style.spacing.button_padding = egui::vec2(2.0, 2.0);
+    
+        style
+    }
+
+    pub fn get_light_theme_style(ctx: &egui::Context) -> Style {
+        use egui::{
+            style::{Selection, Visuals, Widgets},
+            Color32, FontFamily, FontId, CornerRadius, Stroke, TextStyle,
+        };
+    
+        let mut style = (*ctx.style()).clone();
+    
+        // Set text styles
+        style.text_styles = [
+            (TextStyle::Heading, FontId::new(22.0, FontFamily::Proportional)),
+            (TextStyle::Body, FontId::new(18.0, FontFamily::Proportional)),
+            (TextStyle::Monospace, FontId::new(16.0, FontFamily::Monospace)),
+            (TextStyle::Button, FontId::new(18.0, FontFamily::Proportional)),
+            (TextStyle::Small, FontId::new(14.0, FontFamily::Proportional)),
+        ]
+        .into();
+    
+        // Primary background color
+        let primary_bg_color = Color32::from_rgb(189, 212, 231);
+        let secondary_bg_color = Color32::from_rgb(134, 147, 171);
+    
+        // Configure visuals
+        style.visuals = Visuals::light();
+        style.visuals.extreme_bg_color = primary_bg_color;
+        style.visuals.override_text_color = Some(Color32::from_rgb(33, 34, 39));
+        style.visuals.widgets = Widgets {
+            noninteractive: egui::style::WidgetVisuals {
+                bg_fill: secondary_bg_color,
+                bg_stroke: Stroke::new(1.0, Color32::from_rgb(99, 112, 116)),
+                fg_stroke: Stroke::new(1.0, Color32::from_rgb(99, 112, 116)),
+                corner_radius: CornerRadius::same(4),
+                weak_bg_fill: Color32::from_gray(32),
+                expansion: 0.0,
+            },
+            inactive: egui::style::WidgetVisuals {
+                bg_fill: secondary_bg_color,
+                bg_stroke: Stroke::new(1.0, Color32::from_rgb(99, 112, 116)),
+                fg_stroke: Stroke::new(1.0, Color32::from_rgb(33, 34, 39)),
+                corner_radius: CornerRadius::same(4),
+                weak_bg_fill: Color32::from_rgb(141, 159, 135),
+                expansion: 0.0,
+            },
+            hovered: egui::style::WidgetVisuals {
+                bg_fill: Color32::from_rgb(170, 185, 207),
+                bg_stroke: Stroke::new(1.0, Color32::from_rgb(99, 112, 116)),
+                fg_stroke: Stroke::new(1.0, Color32::from_rgb(33, 34, 39)),
+                corner_radius: CornerRadius::same(4),
+                weak_bg_fill: Color32::from_rgb(139, 166, 169),
+                expansion: 0.5,
+            },
+            active: egui::style::WidgetVisuals {
+                bg_fill: Color32::from_rgb(60, 60, 60),
+                bg_stroke: Stroke::new(1.0, Color32::from_rgb(99, 112, 116)),
+                fg_stroke: Stroke::new(1.0, Color32::from_rgb(33, 34, 39)),
+                corner_radius: CornerRadius::same(4),
+                weak_bg_fill: Color32::from_rgb(139, 166, 169),
+                expansion: 2.0,
+            },
+            open: egui::style::WidgetVisuals {
+                bg_fill: Color32::from_rgb(40, 40, 40),
+                bg_stroke: Stroke::new(1.0, Color32::from_rgb(99, 112, 116)),
+                fg_stroke: Stroke::new(1.0, Color32::from_rgb(33, 34, 39)),
+                corner_radius: CornerRadius::same(4),
+                weak_bg_fill: Color32::from_gray(32),
+                expansion: 0.0,
+            },
+        };
+    
+        // Selection colors
+        style.visuals.selection = Selection {
+            bg_fill: Color32::from_rgb(99, 112, 116),
+            stroke: Stroke::new(1.0, Color32::from_rgb(255, 255, 255)),
+        };
+    
+        // Window settings
+        style.visuals.window_corner_radius = CornerRadius::same(6);
+        style.visuals.window_shadow = egui::Shadow {
+            offset: [0, 1],
+            blur: 3,
+            spread: 0,
+            color: Color32::from_black_alpha(128),
+        };
+        style.visuals.window_fill = Color32::from_rgb(122, 156, 198);
         style.visuals.window_stroke = Stroke::new(1.0, Color32::from_gray(60));
         style.visuals.panel_fill = primary_bg_color;
     
@@ -184,7 +286,7 @@ impl eframe::App for TemplateApp {
             },
             outer_margin: egui::Margin::same(0),
             stroke: egui::Stroke::new(1.0, ctx.style().visuals.window_stroke.color),
-            fill: ctx.style().visuals.panel_fill,
+            fill: ctx.style().visuals.window_fill,
             ..Default::default()
         };
         egui::TopBottomPanel::new(panel_location, "top_panel").frame(menu_frame).show(ctx, |ui| {
@@ -195,6 +297,34 @@ impl eframe::App for TemplateApp {
                         egui::Image::new(ImageSource::Uri(format!("{}/assets/croissant.png", root_url).into())).maintain_aspect_ratio(false)
                         .fit_to_exact_size(vec2(48.0, 48.0)).corner_radius(32.0)
                     );
+                }
+
+                let animation_value = 1.0 - self.animations.entry(Id::new("portfolio_button"))
+                    .or_insert({
+                        ctx.animate_value_with_time(Id::new("portfolio_button"), 0.0, 0.2); // Tell the ctx to initialize the animation with a current value of 0.0
+                        (AnimateDirection::In, 0.0)
+                    }).1;
+                let portfolio_text = egui::RichText::new("Portfolio")
+                    .font(egui::FontId::new(20.0 * (1.1 - (0.1 * animation_value)), egui::FontFamily::Proportional))
+                    .color(ctx.style().visuals.override_text_color.unwrap_or(egui::Color32::WHITE));
+                let test_button = ui.add(ButtonWithUnderline::new(portfolio_text).frame(false).inset([8.0 * animation_value, 8.0 * animation_value]));
+                if test_button.clicked() {
+                    log::info!("Portfolio button clicked");
+                }
+                if test_button.hovered() {
+                    let (direction, progress) = self.animations.get_mut(&Id::new("portfolio_button")).unwrap();
+                    // Only handle fade-in
+                    if direction == &AnimateDirection::Out || *progress < 1.0 {
+                        *direction = AnimateDirection::In;
+                        *progress = ctx.animate_value_with_time(Id::new("portfolio_button"), 1.0, 0.2);
+                    }
+                } else {
+                    // Handle fade-out if not hovered
+                    let (direction, progress) = self.animations.get_mut(&Id::new("portfolio_button")).unwrap();
+                    if *direction == AnimateDirection::In || *progress > 0.0 {
+                        *direction = AnimateDirection::Out;
+                        *progress = ctx.animate_value_with_time(Id::new("portfolio_button"), 0.0, 0.2);
+                    }
                 }
                 
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
@@ -320,6 +450,12 @@ enum ScreenSize {
     Small,
     Medium,
     Large,
+}
+
+#[derive(PartialEq)]
+enum AnimateDirection {
+    In,
+    Out,
 }
 
 pub fn get_base_url() -> Option<String> {
