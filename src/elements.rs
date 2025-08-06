@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use egui::{Atom, AtomKind, AtomLayout, AtomLayoutResponse, Color32, CornerRadius, Frame, Image, IntoAtoms, Response, Sense, Stroke, TextWrapMode, TextureHandle, Ui, Vec2, Widget, WidgetInfo, WidgetText, WidgetType};
+use egui::{text_selection::visuals, Atom, AtomKind, AtomLayout, AtomLayoutResponse, Color32, CornerRadius, Frame, Image, IntoAtoms, Response, Sense, Stroke, TextWrapMode, TextureHandle, Ui, Vec2, Widget, WidgetInfo, WidgetText, WidgetType};
 
 pub struct Project {
     slug: String,
@@ -264,6 +264,8 @@ impl<'a> ButtonWithUnderline<'a> {
             AtomLayoutResponse::empty(prepared.response)
         };
 
+        // (&self).paint_underline(ui, &response.response, &prepared.frame);
+
         response.response.widget_info(|| {
             if let Some(text) = &text {
                 WidgetInfo::labeled(WidgetType::Button, ui.is_enabled(), text)
@@ -274,6 +276,30 @@ impl<'a> ButtonWithUnderline<'a> {
 
         response
     }
+
+    // fn paint_underline(
+    //     &self,
+    //     ui: &mut Ui,
+    //     response: &Response,
+    //     frame: &Frame,
+    // ) {
+    //     if let Some(underline_color) = self.underline_color {
+    //         let rect = response.rect;
+    //         let stroke = Stroke::new(1.0, underline_color);
+    //         ui.painter().line_segment(
+    //             [rect.left_bottom() + Vec2::new(frame.inner_margin.left as f32, 0.0), rect.right_bottom() + Vec2::new(-frame.inner_margin.right as f32, 0.0)],
+    //             stroke,
+    //         );
+    //     } else {
+    //         let visuals = ui.visuals();
+    //         let color = visuals.text_color();
+    //         let stroke = Stroke::new(1.0, color);
+    //         ui.painter().line_segment(
+    //             [response.rect.left_bottom(), response.rect.right_bottom()],
+    //             stroke,
+    //         );
+    //     }
+    // }
 }
 
 impl Widget for ButtonWithUnderline<'_> {

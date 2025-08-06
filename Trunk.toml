@@ -1,2 +1,19 @@
 [build]
 filehash = false
+[[hooks]]
+stage = "post_build"
+command = "cp"
+command_arguments = ["-rf", "assets", "dist"]
+
+[hooks.windows]
+# On Windows, use the "copy" command
+command = "xcopy"
+command_arguments = ["assets", "dist", "/S", "/E", "/I", "/Y"]
+
+[hooks.macos]
+command = "cp"
+command_arguments = ["-rf", "assets", "dist"]
+
+[hooks.linux]
+command = "cp"
+command_arguments = ["-rf", "assets", "dist"]

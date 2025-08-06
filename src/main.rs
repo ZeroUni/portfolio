@@ -20,7 +20,10 @@ fn main() -> eframe::Result {
     eframe::run_native(
         "ZeroUni - Portfolio",
         native_options,
-        Box::new(|cc| Ok(Box::new(zerouni_portfolio::TemplateApp::new(cc)))),
+        Box::new(|cc| {
+            egui_extras::install_image_loaders(&cc.egui_ctx);
+            Ok(Box::new(zerouni_portfolio::TemplateApp::new(cc)))
+        }),
     )
 }
 

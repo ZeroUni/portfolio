@@ -1,6 +1,7 @@
 use std::vec;
 
-use egui::{include_image, panel::TopBottomSide, vec2, AtomExt, Scene, Style};
+use egui::{include_image, panel::TopBottomSide, vec2, AtomExt, ImageSource, Scene, Style};
+use web_sys::window;
 
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
@@ -14,6 +15,8 @@ pub struct TemplateApp {
     image_path: String,
     #[serde(skip)]
     scene_rect: egui::Rect,
+    #[serde(skip)]
+    root_url: Option<String>,
 }
 
 impl Default for TemplateApp {
@@ -24,6 +27,7 @@ impl Default for TemplateApp {
             value: 2.7,
             image_path: "/test_img.png".to_owned(),
             scene_rect: egui::Rect::from_min_size(egui::pos2(0.0, 0.0), egui::vec2(1920.0, 1080.0)),
+            root_url: get_base_url(),
         }
     }
 }
@@ -185,12 +189,14 @@ impl eframe::App for TemplateApp {
         };
         egui::TopBottomPanel::new(panel_location, "top_panel").frame(menu_frame).show(ctx, |ui| {
             egui::MenuBar::new().ui(ui, |ui| {
-                // NOTE: no File->Quit on web pages!
                 ui.add_space(8.0);
-                ui.add(
-                    egui::Image::new(include_image!("../assets/croissant.png")).maintain_aspect_ratio(false)
-                    .fit_to_exact_size(vec2(48.0, 48.0)).corner_radius(32.0)
-                );
+                if let Some(root_url) = &self.root_url {
+                    ui.add(
+                        egui::Image::new(ImageSource::Uri(format!("{}/assets/croissant.png", root_url).into())).maintain_aspect_ratio(false)
+                        .fit_to_exact_size(vec2(48.0, 48.0)).corner_radius(32.0)
+                    );
+                }
+                
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     ui.add_space(10.0);
                     ui.style_mut().override_font_id = Some(egui::FontId::new(32.0, egui::FontFamily::Proportional));
@@ -314,4 +320,8 @@ enum ScreenSize {
     Small,
     Medium,
     Large,
+}
+
+pub fn get_base_url() -> Option<String> {
+    window().and_then(|win| win.location().origin().ok())
 }
