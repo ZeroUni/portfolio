@@ -1,6 +1,7 @@
 use std::sync::Arc;
+use std::f32::consts::PI;
 
-use egui::{text_selection::visuals, Atom, AtomKind, AtomLayout, AtomLayoutResponse, Color32, CornerRadius, Frame, Image, IntoAtoms, Margin, Response, Sense, Stroke, TextWrapMode, TextureHandle, Ui, UiBuilder, Vec2, Widget, WidgetInfo, WidgetText, WidgetType};
+use egui::{emath, epaint, frame::Prepared, lerp, text::Fonts, text_selection::visuals, Atom, AtomKind, AtomLayout, AtomLayoutResponse, Color32, CornerRadius, FontId, Frame, Galley, Image, IntoAtoms, Margin, Mesh, Painter, Pos2, Rect, Response, Rgba, Sense, Stroke, TextWrapMode, TextureHandle, Ui, UiBuilder, Vec2, Widget, WidgetInfo, WidgetText, WidgetType};
 use web_sys::{window, Url};
 
 pub struct Project {
@@ -329,19 +330,33 @@ impl Widget for ButtonWithUnderline<'_> {
     }
 }
 
-pub fn skill_frameplate(ui: &mut Ui, skill: &str, color: Color32, text_color: Color32, gradient: bool) -> () {
+pub fn skill_frameplate(ui: &mut Ui, skill: &str, color: Color32, text_color: Color32, max_pos: Pos2) -> () {
     let frame = Frame::new();
     // Make the frame's stroke a stronger version of the color given
     let stroke = Stroke::new(2.0, color.blend(Color32::from_black_alpha(100)));
-    frame
+    let text_galley = ui.fonts(|f| f.layout_no_wrap(skill.to_string(), FontId::default(), text_color));
+    let required_space = text_galley.size() + Vec2::splat(3.0);
+    if ui.available_rect_before_wrap().width() < required_space.x {
+        log::debug!("Not enough space for skill: {}", skill);
+        ui.end_row();
+    }
+    let mut frame_ui = frame
         .fill(color)
         .inner_margin(2.0)
         .outer_margin(0.0)
         .corner_radius(CornerRadius::same(1))
         .stroke(stroke)
-        .show(ui, |ui| {
-        ui.label(egui::RichText::new(skill).color(text_color))
-    });
+        .begin(ui);
+    {
+        frame_ui.content_ui.style_mut().wrap_mode = Some(TextWrapMode::Extend);
+        frame_ui.content_ui.label(egui::RichText::new(skill).color(text_color));
+    }
+    let prepared = frame_ui.content_ui.min_rect();
+    log::debug!("Prepared rect: {:?}", prepared.right_bottom());
+    log::debug!("Max pos: {:?}", max_pos);
+    frame_ui.paint(ui);
+    let _ = frame_ui.allocate_space(ui);
+    // frame_ui
 }
 
 pub fn socials(ui: &mut Ui, display: &str, link: &str, icon: &Option<String>) {
@@ -387,4 +402,66 @@ pub fn socials(ui: &mut Ui, display: &str, link: &str, icon: &Option<String>) {
     if response.response.hovered() {
         ui.output_mut(|o| o.cursor_icon = egui::CursorIcon::PointingHand);
     }
+}
+
+pub fn paint_angular_gradient(
+    painter: &Painter,
+    rect: Rect,
+    start_color: Color32,
+    end_color: Color32,
+    angle_rad: f32,
+    intensity: Vec2,
+) {
+    let rot = Vec2::new(angle_rad.sin(), -angle_rad.cos());
+    let rect_center = rect.center();
+    let corners = [
+        rect.left_top(),
+        rect.right_top(),
+        rect.right_bottom(),
+        rect.left_bottom(),
+    ];
+
+    let projections = corners.map(|corner| (corner - rect_center).dot(rot));
+    let min_proj = projections.iter().fold(f32::INFINITY, |a, &b| a.min(b));
+    let max_proj = projections.iter().fold(f32::NEG_INFINITY, |a, &b| a.max(b));
+    let proj_range = max_proj - min_proj;
+
+    // Clamp intensities to prevent division by zero or negative values.
+    let safe_intensity = Vec2::new(intensity.x.max(f32::EPSILON), intensity.y.max(f32::EPSILON));
+
+    // Define the blend region in normalized (0-1) space.
+    // An intensity of 2.0 for the start color means it should hold until the 0.5 mark.
+    // The formula is 0.5 - 0.5 / intensity.
+    let start_blend_point = 0.5 - (0.5 / safe_intensity.x);
+    let end_blend_point = 0.5 + (0.5 / safe_intensity.y);
+
+    let mut mesh = Mesh::default();
+    let mut vertices = Vec::with_capacity(4);
+    let start_rgba = Rgba::from(start_color);
+    let end_rgba = Rgba::from(end_color);
+
+    for i in 0..4 {
+        // Calculate the linear interpolation factor `t` for this vertex.
+        let t = if proj_range.abs() < f32::EPSILON {
+            0.5
+        } else {
+            (projections[i] - min_proj) / proj_range
+        };
+
+        // Remap `t` based on the intensity-derived blend points.
+        let blend_factor = emath::remap_clamp(t, start_blend_point..=end_blend_point, 0.0..=1.0);
+        
+        // Interpolate the color using the final blend factor.
+        let color = lerp(start_rgba..=end_rgba, blend_factor);
+
+        vertices.push(epaint::Vertex {
+            pos: corners[i],
+            uv: Pos2::ZERO,
+            color: color.into(),
+        });
+    }
+    
+    mesh.indices.extend_from_slice(&[0, 1, 2, 0, 2, 3]);
+    mesh.vertices = vertices;
+    painter.add(mesh);
 }

@@ -1,9 +1,9 @@
-use std::{collections::HashMap, vec};
+use std::{collections::HashMap, f32::consts::PI, vec};
 
-use egui::{include_image, panel::TopBottomSide, vec2, AtomExt, Color32, Id, ImageSource, Scene, Style, Theme};
+use egui::{include_image, panel::TopBottomSide, pos2, vec2, AtomExt, Color32, Id, ImageSource, Mesh, Scene, Style, Theme};
 use web_sys::window;
 
-use crate::{data::Skill, elements::{skill_frameplate, socials, ButtonWithUnderline}};
+use crate::{data::Skill, elements::{paint_angular_gradient, skill_frameplate, socials, ButtonWithUnderline}};
 
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
@@ -301,7 +301,7 @@ impl eframe::App for TemplateApp {
                         .fit_to_exact_size(vec2(48.0, 48.0)).corner_radius(32.0)
                     );
                 }
-                ui.add_space(18.0);
+                ui.add_space(20.0);
 
                 let animation_value = 1.0 - self.animations.entry(Id::new("portfolio_button"))
                     .or_insert({
@@ -345,7 +345,10 @@ impl eframe::App for TemplateApp {
             });
         });
 
+
         egui::CentralPanel::default().show(ctx, |ui| {
+            let bg_painter = ctx.layer_painter(egui::LayerId::background());
+            paint_angular_gradient(&bg_painter, ui.clip_rect(), egui::Color32::from_rgb(95, 15, 64), ui.visuals().extreme_bg_color, -PI / 4.0, vec2(0.4, 2.0));
             egui::Frame::group(ui.style())
                 .inner_margin(egui::Margin::symmetric(18, 14))
                 .outer_margin(0.0)
@@ -359,7 +362,7 @@ impl eframe::App for TemplateApp {
                     let scroll_area = egui::ScrollArea::both().max_width(ui.available_width() - 20.0).min_scrolled_height(ui.available_height()).auto_shrink([false, false]).scroll([false, true]);
 
 
-                    scroll_area.show(ui, |ui| {
+                    let scroll_response = scroll_area.show(ui, |ui| {
                             // The central panel the region left after adding TopPanel's and SidePanel's
                             ui.set_min_height(ui.available_height());
                             ui.set_width(ui.available_rect_before_wrap().width());
@@ -391,7 +394,7 @@ impl eframe::App for TemplateApp {
                                 ),
                                 egui::Label::new(format!("Scene Rect: {:#?}\nClip Rect: {:#?}", scene_rect_snapshot, ui.clip_rect())).halign(egui::Align::LEFT),
                             );
-                            ui.horizontal(|ui| {
+                            let opener = ui.horizontal(|ui| {
                                 let name_size = match screen_size {
                                     ScreenSize::Small => 20.0,
                                     ScreenSize::Medium => 25.0,
@@ -404,15 +407,25 @@ impl eframe::App for TemplateApp {
                                     );
                                 });
                                 ui.vertical(|ui| {
-                                    ui.label("Rust Enthusiast");
-                                    ui.label("Egui Fanatic");
+                                    ui.label(
+                                        "Fullstack developer / backend enthusiast"
+                                    );
                                     socials(ui, "github/@ZeroUni", "https://github.com/ZeroUni", &None);
+                                    socials(ui, "linkedin/@ZeroUni", "https://www.linkedin.com/in/ZeroUni", &None);
                                 });
-                            });
+                            }).response;
                             // skill_frameplate(ui, "egui", Color32::from_rgb(78, 64, 90), Color32::from_rgb(200, 200, 200), false);
                             ui.horizontal_wrapped(|ui| {
+                                ui.set_max_width(opener.rect.width());
                                 for skill in self.data.skills() {
-                                    skill_frameplate(ui, &skill.name, skill.color(), skill.text_color(), false);
+                                    let max_pos = ui.available_rect_before_wrap().right_bottom();
+                                    skill_frameplate(ui, &skill.name, skill.color(), skill.text_color(), max_pos);
+                                    // let min_rect = prepared.content_ui.min_rect();
+                                    // if min_rect.right_bottom().x > max_pos.x {
+                                    //     log::debug!("Frame exceeds max position, adjusting width");
+                                    //     ui.end_row();
+                                    // }
+                                    // prepared.end(ui);
                                 }
                             });
                             
@@ -446,7 +459,8 @@ impl eframe::App for TemplateApp {
                                 egui::warn_if_debug_build(ui);
                             });
 
-                        });
+                        }).inner_rect;
+
                     // If the scene_rect has negative bounds (x or y), shift it to the origin preserving the size.
                     if self.scene_rect.min.x < 0.0 || self.scene_rect.min.y < 0.0 {
                         let shift = vec2(
@@ -456,7 +470,6 @@ impl eframe::App for TemplateApp {
                         self.scene_rect = self.scene_rect.translate(-shift);
                     }
                 });
-
         });
     }
 }

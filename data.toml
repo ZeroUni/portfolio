@@ -1,9 +1,49 @@
 [[skills]]
-name = "Rust"
-rgb = [222, 108, 28]
-text_rgb = [255, 255, 255]
-
-[[skills]]
 name = "e-gui"
 rgb = [78, 64, 90]
 text_rgb = [200, 200, 200]
+
+[[skills]]
+name = "react"
+rgb = [0, 128, 255]
+text_rgb = [35, 39, 47]
+
+[[skills]]
+name = "sveltekit"
+rgb = [255, 62, 0]
+text_rgb = [255, 255, 255]
+
+[[skills]]
+name = "rust"
+rgb = [211, 69, 22]
+text_rgb = [255, 255, 255]
+
+[[skills]]
+name = "typescript"
+rgb = [49, 120, 198]
+text_rgb = [255, 255, 255]
+
+[[skills]]
+name = "python"
+rgb = [48, 105, 152]
+text_rgb = [255, 255, 255]
+
+[[skills]]
+name = "sql"
+rgb = [52, 101, 164]
+text_rgb = [255, 255, 255]
+
+[[skills]]
+name = "ai/ml"
+rgb = [255, 153, 0]
+text_rgb = [255, 255, 255]
+
+[[skills]]
+name = "virtualization"
+rgb = [128, 0, 128]
+text_rgb = [255, 255, 255]
+
+[[skills]]
+name = "docker"
+rgb = [0, 0, 255]
+text_rgb = [255, 255, 255]
