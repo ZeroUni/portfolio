@@ -414,18 +414,11 @@ impl eframe::App for TemplateApp {
                                     socials(ui, "linkedin/@ZeroUni", "https://www.linkedin.com/in/ZeroUni", &None);
                                 });
                             }).response;
-                            // skill_frameplate(ui, "egui", Color32::from_rgb(78, 64, 90), Color32::from_rgb(200, 200, 200), false);
+                            
                             ui.horizontal_wrapped(|ui| {
                                 ui.set_max_width(opener.rect.width());
                                 for skill in self.data.skills() {
-                                    let max_pos = ui.available_rect_before_wrap().right_bottom();
-                                    skill_frameplate(ui, &skill.name, skill.color(), skill.text_color(), max_pos);
-                                    // let min_rect = prepared.content_ui.min_rect();
-                                    // if min_rect.right_bottom().x > max_pos.x {
-                                    //     log::debug!("Frame exceeds max position, adjusting width");
-                                    //     ui.end_row();
-                                    // }
-                                    // prepared.end(ui);
+                                    skill_frameplate(ui, &skill.name, skill.color(), skill.text_color());
                                 }
                             });
                             

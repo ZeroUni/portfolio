@@ -1,6 +1,3 @@
-use std::sync::Arc;
-use std::f32::consts::PI;
-
 use egui::{emath, epaint, frame::Prepared, lerp, text::Fonts, text_selection::visuals, Atom, AtomKind, AtomLayout, AtomLayoutResponse, Color32, CornerRadius, FontId, Frame, Galley, Image, IntoAtoms, Margin, Mesh, Painter, Pos2, Rect, Response, Rgba, Sense, Stroke, TextWrapMode, TextureHandle, Ui, UiBuilder, Vec2, Widget, WidgetInfo, WidgetText, WidgetType};
 use web_sys::{window, Url};
 
@@ -12,6 +9,7 @@ pub struct Project {
     thumbnail: Option<TextureHandle>, // Store the thumbnail as a TextureHandle directly
 }
 
+/// A button widget with an optional underline. Copies main structure from original `egui::Button`
 #[must_use = "You should put this widget in a ui with `ui.add(widget);`"]
 pub struct ButtonWithUnderline<'a> {
     color: Color32,
@@ -298,6 +296,11 @@ impl<'a> ButtonWithUnderline<'a> {
     }
 }
 
+/// Helper function to paint the underline for a button with an optional color.
+/// - `ui`: The UI context to draw on.
+/// - `response`: The response of the button.
+/// - `margins`: The margins to apply.
+/// - `underline_color`: The color of the underline.
 fn paint_underline(
     ui: &mut Ui,
     response: &Response,
@@ -330,12 +333,19 @@ impl Widget for ButtonWithUnderline<'_> {
     }
 }
 
-pub fn skill_frameplate(ui: &mut Ui, skill: &str, color: Color32, text_color: Color32, max_pos: Pos2) -> () {
+/// Mutates the given ui to display a small card containing a skill by name.
+/// - `ui`: The UI context to draw on.
+/// - `skill`: The name of the skill to display.
+/// - `color`: The background color of the skill card.
+/// - `text_color`: The text color of the skill name.
+/// - `max_pos`: The maximum position for the skill card.
+pub fn skill_frameplate(ui: &mut Ui, skill: &str, color: Color32, text_color: Color32) -> () {
     let frame = Frame::new();
     // Make the frame's stroke a stronger version of the color given
     let stroke = Stroke::new(2.0, color.blend(Color32::from_black_alpha(100)));
     let text_galley = ui.fonts(|f| f.layout_no_wrap(skill.to_string(), FontId::default(), text_color));
     let required_space = text_galley.size() + Vec2::splat(3.0);
+    // Since frames don't auto-wrap, wrap if we do not have enough space
     if ui.available_rect_before_wrap().width() < required_space.x {
         log::debug!("Not enough space for skill: {}", skill);
         ui.end_row();
@@ -351,14 +361,16 @@ pub fn skill_frameplate(ui: &mut Ui, skill: &str, color: Color32, text_color: Co
         frame_ui.content_ui.style_mut().wrap_mode = Some(TextWrapMode::Extend);
         frame_ui.content_ui.label(egui::RichText::new(skill).color(text_color));
     }
-    let prepared = frame_ui.content_ui.min_rect();
-    log::debug!("Prepared rect: {:?}", prepared.right_bottom());
-    log::debug!("Max pos: {:?}", max_pos);
     frame_ui.paint(ui);
     let _ = frame_ui.allocate_space(ui);
     // frame_ui
 }
 
+/// Mutates the given ui to display a social link with an optional icon
+/// - `ui`: The UI context to draw on.
+/// - `display`: The text to display for the link.
+/// - `link`: The URL to open when the link is clicked.
+/// - `icon`: An optional path to an icon to display next to the link.
 pub fn socials(ui: &mut Ui, display: &str, link: &str, icon: &Option<String>) {
     let frame = Frame::new();
     let response = ui.scope_builder(
@@ -404,6 +416,14 @@ pub fn socials(ui: &mut Ui, display: &str, link: &str, icon: &Option<String>) {
     }
 }
 
+/// Paints a rectangle with a linear gradient with intensity controls.
+///
+/// - `painter`: The `egui::Painter` to draw with.
+/// - `rect`: The `egui::Rect` to fill with the gradient.
+/// - `start_color`: The color at the start of the gradient.
+/// - `end_color`: The color at the end of the gradient.
+/// - `angle_rad`: The angle of the gradient in radians. 0 is vertical top-to-bottom.
+/// - `intensity`: A `Vec2` to control the blending importance.
 pub fn paint_angular_gradient(
     painter: &Painter,
     rect: Rect,
