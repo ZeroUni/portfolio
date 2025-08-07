@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
-use egui::{text_selection::visuals, Atom, AtomKind, AtomLayout, AtomLayoutResponse, Color32, CornerRadius, Frame, Image, IntoAtoms, Margin, Response, Sense, Stroke, TextWrapMode, TextureHandle, Ui, Vec2, Widget, WidgetInfo, WidgetText, WidgetType};
+use egui::{text_selection::visuals, Atom, AtomKind, AtomLayout, AtomLayoutResponse, Color32, CornerRadius, Frame, Image, IntoAtoms, Margin, Response, Sense, Stroke, TextWrapMode, TextureHandle, Ui, UiBuilder, Vec2, Widget, WidgetInfo, WidgetText, WidgetType};
+use web_sys::{window, Url};
 
 pub struct Project {
     slug: String,
@@ -325,5 +326,65 @@ fn paint_underline(
 impl Widget for ButtonWithUnderline<'_> {
     fn ui(self, ui: &mut Ui) -> Response {
         self.atom_ui(ui).response
+    }
+}
+
+pub fn skill_frameplate(ui: &mut Ui, skill: &str, color: Color32, text_color: Color32, gradient: bool) -> () {
+    let frame = Frame::new();
+    // Make the frame's stroke a stronger version of the color given
+    let stroke = Stroke::new(2.0, color.blend(Color32::from_black_alpha(100)));
+    frame
+        .fill(color)
+        .inner_margin(2.0)
+        .outer_margin(0.0)
+        .corner_radius(CornerRadius::same(1))
+        .stroke(stroke)
+        .show(ui, |ui| {
+        ui.label(egui::RichText::new(skill).color(text_color))
+    });
+}
+
+pub fn socials(ui: &mut Ui, display: &str, link: &str, icon: &Option<String>) {
+    let frame = Frame::new();
+    let response = ui.scope_builder(
+    UiBuilder::new()
+        .sense(Sense::click()),
+    |ui| {
+            let mut frame_ui = frame
+                .inner_margin(2.0)
+                .outer_margin(0.0)
+                .corner_radius(CornerRadius::same(1))
+                .begin(ui);
+            {
+                frame_ui.content_ui.horizontal(|ui| {
+                    if let Some(icon) = icon {
+                        let image = Image::new(icon).fit_to_exact_size(Vec2::new(16.0, 16.0));
+                        ui.add(image);
+                    }
+                    let base_text_color = ui.visuals().text_color();
+                    ui.style_mut().interaction.selectable_labels = false;
+                    ui.label(egui::RichText::new(display).color(base_text_color.blend(Color32::from_rgb(base_text_color.r(), base_text_color.g(), 255))));
+                });
+            }
+            let response = frame_ui.allocate_space(ui);
+            if response.hovered() {
+                frame_ui.frame.fill = ui.visuals().noninteractive().bg_stroke.color;;
+            }
+            frame_ui.paint(ui);
+            response
+        },
+    );
+    if response.response.clicked() {
+        if let Ok(_) = Url::new(link) { // Verifies valid link parsing
+            if let Some(window) = window() {
+                // Uses the link directly anyway since its been validated
+                let _ = window.open_with_url_and_target(link, "_blank");
+            }
+        } else {
+            log::debug!("Invalid URL: {}", link);
+        }
+    }
+    if response.response.hovered() {
+        ui.output_mut(|o| o.cursor_icon = egui::CursorIcon::PointingHand);
     }
 }

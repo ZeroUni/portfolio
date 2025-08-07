@@ -1,0 +1,9 @@
+[[skills]]
+name = "Rust"
+rgb = [222, 108, 28]
+text_rgb = [255, 255, 255]
+
+[[skills]]
+name = "e-gui"
+rgb = [78, 64, 90]
+text_rgb = [200, 200, 200]

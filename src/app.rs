@@ -3,7 +3,7 @@ use std::{collections::HashMap, vec};
 use egui::{include_image, panel::TopBottomSide, vec2, AtomExt, Color32, Id, ImageSource, Scene, Style, Theme};
 use web_sys::window;
 
-use crate::elements::ButtonWithUnderline;
+use crate::{data::Skill, elements::{skill_frameplate, socials, ButtonWithUnderline}};
 
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
@@ -21,6 +21,8 @@ pub struct TemplateApp {
     root_url: Option<String>,
     #[serde(skip)]
     animations: HashMap<Id, (AnimateDirection, f32)>, // Map of animations by their ID, as well as their direction and progress
+    #[serde(skip)]
+    data: crate::data::Data, // Data struct to hold skills and other data
 }
 
 impl Default for TemplateApp {
@@ -33,6 +35,7 @@ impl Default for TemplateApp {
             scene_rect: egui::Rect::from_min_size(egui::pos2(0.0, 0.0), egui::vec2(1920.0, 1080.0)),
             root_url: get_base_url(),
             animations: HashMap::new(),
+            data: crate::data::Data::new(),
         }
     }
 }
@@ -298,6 +301,7 @@ impl eframe::App for TemplateApp {
                         .fit_to_exact_size(vec2(48.0, 48.0)).corner_radius(32.0)
                     );
                 }
+                ui.add_space(18.0);
 
                 let animation_value = 1.0 - self.animations.entry(Id::new("portfolio_button"))
                     .or_insert({
@@ -387,6 +391,31 @@ impl eframe::App for TemplateApp {
                                 ),
                                 egui::Label::new(format!("Scene Rect: {:#?}\nClip Rect: {:#?}", scene_rect_snapshot, ui.clip_rect())).halign(egui::Align::LEFT),
                             );
+                            ui.horizontal(|ui| {
+                                let name_size = match screen_size {
+                                    ScreenSize::Small => 20.0,
+                                    ScreenSize::Medium => 25.0,
+                                    ScreenSize::Large => 30.0,
+                                };
+                                ui.vertical(|ui| {
+                                    ui.add_space(16.0);
+                                    ui.label(
+                                        egui::RichText::new("ZeroUni").font(egui::FontId::new(name_size, egui::FontFamily::Proportional)).strong()
+                                    );
+                                });
+                                ui.vertical(|ui| {
+                                    ui.label("Rust Enthusiast");
+                                    ui.label("Egui Fanatic");
+                                    socials(ui, "github/@ZeroUni", "https://github.com/ZeroUni", &None);
+                                });
+                            });
+                            // skill_frameplate(ui, "egui", Color32::from_rgb(78, 64, 90), Color32::from_rgb(200, 200, 200), false);
+                            ui.horizontal_wrapped(|ui| {
+                                for skill in self.data.skills() {
+                                    skill_frameplate(ui, &skill.name, skill.color(), skill.text_color(), false);
+                                }
+                            });
+                            
 
                             ui.horizontal(|ui| {
                                 ui.set_max_size(vec2(500.0_f32.min(size_horizontal / 2.0).max(200.0), 100.0));
