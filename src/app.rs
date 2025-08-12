@@ -1,18 +1,13 @@
 use std::{collections::HashMap, f32::consts::PI, vec};
 
-use egui::{include_image, panel::TopBottomSide, pos2, vec2, AtomExt, Color32, Id, ImageSource, Mesh, Scene, Style, Theme};
-use web_sys::window;
+use egui::{include_image, panel::TopBottomSide, pos2, vec2, Align, AtomExt, Color32, Frame, Id, ImageSource, Label, Mesh, Rect, Scene, Sense, Stroke, Style, Theme, UiBuilder};
+use web_sys::{window};
 
-use crate::{data::Skill, elements::{paint_angular_gradient, skill_frameplate, socials, ButtonWithUnderline}};
+use crate::{data::{Data, ProjectHighlight, Skill}, elements::{add_highlighted_project, paint_angular_gradient, skill_frameplate, socials, ButtonWithUnderline}};
 
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
 pub struct TemplateApp {
-    // Example stuff:
-    label: String,
-
-    #[serde(skip)] // This how you opt-out of serialization of a field
-    value: f32,
     #[serde(skip)]
     image_path: String,
     #[serde(skip)]
@@ -22,15 +17,12 @@ pub struct TemplateApp {
     #[serde(skip)]
     animations: HashMap<Id, (AnimateDirection, f32)>, // Map of animations by their ID, as well as their direction and progress
     #[serde(skip)]
-    data: crate::data::Data, // Data struct to hold skills and other data
+    data: Data, // Data struct to hold skills and other data
 }
 
 impl Default for TemplateApp {
     fn default() -> Self {
         Self {
-            // Example stuff:
-            label: "Hello World!".to_owned(),
-            value: 2.7,
             image_path: "/test_img.png".to_owned(),
             scene_rect: egui::Rect::from_min_size(egui::pos2(0.0, 0.0), egui::vec2(1920.0, 1080.0)),
             root_url: get_base_url(),
@@ -345,6 +337,8 @@ impl eframe::App for TemplateApp {
             });
         });
 
+        ctx.set_debug_on_hover(true);
+
 
         egui::CentralPanel::default().show(ctx, |ui| {
             let bg_painter = ctx.layer_painter(egui::LayerId::background());
@@ -359,100 +353,84 @@ impl eframe::App for TemplateApp {
                         .zoom_range(1.0..=5.0);
 
                     let scene_rect_snapshot = self.scene_rect.clone();
-                    let scroll_area = egui::ScrollArea::both().max_width(ui.available_width() - 20.0).min_scrolled_height(ui.available_height()).auto_shrink([false, false]).scroll([false, true]);
+                    let scroll_area = egui::ScrollArea::both().max_width(ui.available_width()).min_scrolled_height(ui.available_height()).auto_shrink([false, false]).scroll([false, true]);
 
 
                     let scroll_response = scroll_area.show(ui, |ui| {
-                            // The central panel the region left after adding TopPanel's and SidePanel's
-                            ui.set_min_height(ui.available_height());
-                            ui.set_width(ui.available_rect_before_wrap().width());
-                            let left = ui.min_rect().left();
-                            let top = ui.min_rect().top();
-                            let size_horizontal = ui.clip_rect().width();
-                            let label = egui::Label::new(egui::RichText::new("This should show at the top left").font(egui::FontId::new(22.0, egui::FontFamily::Proportional))).halign(egui::Align::LEFT);
-                            let mut top_offset = top;
-                            let left_offset = left;
-                            let title = ui.put(
-                                egui::Rect::from_min_size(
-                                    egui::pos2(left_offset, top_offset),
-                                    vec2(250.0_f32.min(size_horizontal / 2.0).max(100.0), 10.0),
-                                ),
-                                label,
-                            );
-                            top_offset += title.rect.height() + 5.0;
+                        // The central panel the region left after adding TopPanel's and SidePanel's
+                        ui.set_min_height(ui.available_height());
+                        ui.set_width(ui.available_rect_before_wrap().width());
+                        let size_horizontal = ui.clip_rect().width();
 
-                            // ui.label(format!("{:#?}", ui.clip_rect())); 
-                            // ui.label(format!("{:#?}", scene_rect_snapshot));
-
-                            let debug_layout = egui::Label::new(format!("Scene Rect: {:#?}\nClip Rect: {:#?}", scene_rect_snapshot, ui.clip_rect())).halign(egui::Align::LEFT).extend();
-                            let debug_preferred_size = debug_layout.layout_in_ui(ui).2.rect.width();
-
-                            let rect_debugs = ui.put(
-                                egui::Rect::from_min_size(
-                                    egui::pos2(left_offset, top_offset),
-                                    vec2(debug_preferred_size.clamp(100.0, size_horizontal / 2.0), 10.0),
-                                ),
-                                egui::Label::new(format!("Scene Rect: {:#?}\nClip Rect: {:#?}", scene_rect_snapshot, ui.clip_rect())).halign(egui::Align::LEFT),
-                            );
+                        let main_info = Frame::group(ui.style()).stroke(Stroke::NONE);
+                        let main_space = main_info.show(ui, |ui| {
                             let opener = ui.horizontal(|ui| {
-                                let name_size = match screen_size {
-                                    ScreenSize::Small => 20.0,
-                                    ScreenSize::Medium => 25.0,
-                                    ScreenSize::Large => 30.0,
-                                };
                                 ui.vertical(|ui| {
                                     ui.add_space(16.0);
                                     ui.label(
-                                        egui::RichText::new("ZeroUni").font(egui::FontId::new(name_size, egui::FontFamily::Proportional)).strong()
+                                        egui::RichText::new("ZeroUni").font(egui::FontId::new(get_font_size(&screen_size, 4), egui::FontFamily::Proportional)).strong()
                                     );
                                 });
                                 ui.vertical(|ui| {
                                     ui.label(
-                                        "Fullstack developer / backend enthusiast"
+                                        egui::RichText::new("Fullstack developer / backend enthusiast").font(egui::FontId::new(get_font_size(&screen_size, 1), egui::FontFamily::Proportional)).strong()
                                     );
-                                    socials(ui, "github/@ZeroUni", "https://github.com/ZeroUni", &None);
-                                    socials(ui, "linkedin/@ZeroUni", "https://www.linkedin.com/in/ZeroUni", &None);
+                                    socials(ui, "github/@ZeroUni", "https://github.com/ZeroUni", &None, get_font_size(&screen_size, 1));
+                                    socials(ui, "linkedin/@ZeroUni", "https://www.linkedin.com/in/ZeroUni", &None, get_font_size(&screen_size, 1));
                                 });
                             }).response;
                             
                             ui.horizontal_wrapped(|ui| {
                                 ui.set_max_width(opener.rect.width());
                                 for skill in self.data.skills() {
-                                    skill_frameplate(ui, &skill.name, skill.color(), skill.text_color());
+                                    skill_frameplate(ui, &skill.name, skill.color(), skill.text_color(), get_font_size(&screen_size, 0));
                                 }
                             });
-                            
 
                             ui.horizontal(|ui| {
-                                ui.set_max_size(vec2(500.0_f32.min(size_horizontal / 2.0).max(200.0), 100.0));
-                                ui.label("Write something: ");
-                                ui.text_edit_singleline(&mut self.label);
+                                ui.visuals_mut().hyperlink_color = Color32::from_rgb(128, 36, 133);
+                                ui.add(egui::github_link_file!(
+                                    "https://github.com/ZeroUni/portfolio/blob/main/",
+                                    "Source Code"
+                                ).open_in_new_tab(true));
+                                ui.visuals_mut().hyperlink_color = Color32::from_rgb(98, 36, 208);
+                                ui.add(egui::github_link_file!(
+                                    "https://github.com/emilk/eframe_template/blob/main/",
+                                    "[egui]"
+                                ).open_in_new_tab(true));
                             });
+                        }).response.rect;
 
-                            ui.add(egui::Slider::new(&mut self.value, 0.0..=10.0).text("value"));
-                            if ui.button("Increment").clicked() {
-                                self.value += 1.0;
-                            }
+                        let (highlight_space, highlight_layout) = match screen_size {
+                            ScreenSize::Small => (ui.allocate_rect(Rect::from_min_size(main_space.left_bottom() + vec2(0.0, 16.0), vec2(ui.available_width(), 200.0)), Sense::click()),
+                            egui::Layout::top_down(egui::Align::LEFT)),
+                            ScreenSize::Medium | ScreenSize::Large => (ui.allocate_rect(Rect::from_min_size(main_space.right_top() + vec2(8.0, 0.0), vec2(ui.max_rect().width() - main_space.width() - 8.0, 200.0)), Sense::hover()),
+                            egui::Layout::top_down(egui::Align::Max)),
+                        };
 
-                            ui.put(
-                                egui::Rect::from_min_size(
-                                    egui::pos2(left_offset, top + title.rect.height() + rect_debugs.rect.height() + 10.0),
-                                    vec2(size_horizontal, 1.0),
-                                ),
-                                egui::Separator::default().spacing(size_horizontal),
-                            );
-
-                            ui.add(egui::github_link_file!(
-                                "https://github.com/emilk/eframe_template/blob/main/",
-                                "Source code."
-                            ));
-
-                            ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
-                                powered_by_egui_and_eframe(ui);
-                                egui::warn_if_debug_build(ui);
+                        ui.scope_builder(egui::UiBuilder::default().max_rect(highlight_space.rect).sense(Sense::click()).layout(highlight_layout), |ui| {
+                            let outer_frame = egui::Frame::group(ui.style()).fill(Color32::from_gray(100).blend(ui.visuals().extreme_bg_color.gamma_multiply_u8(200))).outer_margin(egui::Margin::symmetric(8, 0));
+                            outer_frame.show(ui, |ui| {
+                                ui.horizontal(|ui| {
+                                    ui.set_max_width(600.0_f32.min(highlight_space.rect.width()) - 16.0);
+                                    ui.with_layout(egui::Layout::top_down(egui::Align::LEFT), |ui| {
+                                        ui.heading(egui::RichText::new("Highlights").underline());
+                                    });
+                                });
+                                let root_url = self.root_url.clone().unwrap_or_default();
+                                ui.set_max_width(800.0_f32.min(highlight_space.rect.width()) - 16.0);
+                                for project in self.data.project_highlights_mut() {
+                                    add_highlighted_project(ui, ctx, &root_url, project);
+                                }
                             });
+                        });
 
-                        }).inner_rect;
+                        ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
+                            powered_by_egui_and_eframe(ui);
+                            egui::warn_if_debug_build(ui);
+                        });
+
+                    }).inner_rect;
 
                     // If the scene_rect has negative bounds (x or y), shift it to the origin preserving the size.
                     if self.scene_rect.min.x < 0.0 || self.scene_rect.min.y < 0.0 {
@@ -481,10 +459,38 @@ fn powered_by_egui_and_eframe(ui: &mut egui::Ui) {
     });
 }
 
+#[repr(u8)]
 enum ScreenSize {
-    Small,
-    Medium,
-    Large,
+    Small = 1,
+    Medium = 2,
+    Large = 3,
+}
+
+impl ScreenSize {
+    fn from_u8(value: u8) -> Option<Self> {
+        match value {
+            1 => Some(ScreenSize::Small),
+            2 => Some(ScreenSize::Medium),
+            3 => Some(ScreenSize::Large),
+            _ => None,
+        }
+    }
+
+    fn to_u8(&self) -> u8 {
+        match self {
+            &ScreenSize::Small => 1,
+            &ScreenSize::Medium => 2,
+            &ScreenSize::Large => 3,
+        }
+    }
+
+    fn as_f32(&self) -> f32 {
+        self.to_u8() as f32
+    }
+
+    fn as_f64(&self) -> f64 {
+        self.to_u8() as f64
+    }
 }
 
 #[derive(PartialEq)]
@@ -495,4 +501,28 @@ enum AnimateDirection {
 
 pub fn get_base_url() -> Option<String> {
     window().and_then(|win| win.location().origin().ok())
+}
+
+/// Get the font size for a specific screen size and paragraph type.
+/// - `screen_size`: The screen size to get the font size for.
+/// - `paragraph_type`: The paragraph type to get the font size for.
+///    - `0` font size for small sections
+///    - `1` font size for regular text 
+///    - `2` font size for subheaders
+///    - `3` font size for headers / Titles
+///    - `4` font size for hero text (ONE PER PAGE)
+pub fn get_font_size(screen_size: &ScreenSize, paragraph_type: u8) -> f32 {
+    let base_size = match screen_size {
+        &ScreenSize::Small => 14.0,
+        &ScreenSize::Medium => 14.0,
+        &ScreenSize::Large => 16.0,
+    };
+    match paragraph_type {
+        0 => base_size,
+        1 => base_size * 1.2,
+        2 => base_size * 1.4,
+        3 => base_size * 1.6,
+        4 => base_size * 1.8,
+        _ => base_size,
+    }
 }

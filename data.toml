@@ -47,3 +47,10 @@ text_rgb = [255, 255, 255]
 name = "docker"
 rgb = [0, 0, 255]
 text_rgb = [255, 255, 255]
+
+[[project_highlights]]
+slug = "my-first-project"
+title = "My First Project"
+description = "A brief description of my first project."
+tags = [{ name = "rust", rgb = [211, 69, 22], text_rgb = [255, 255, 255] }]
+thumbnail_path = "/assets/croissant.png"

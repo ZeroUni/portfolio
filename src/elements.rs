@@ -1,13 +1,7 @@
 use egui::{emath, epaint, frame::Prepared, lerp, text::Fonts, text_selection::visuals, Atom, AtomKind, AtomLayout, AtomLayoutResponse, Color32, CornerRadius, FontId, Frame, Galley, Image, IntoAtoms, Margin, Mesh, Painter, Pos2, Rect, Response, Rgba, Sense, Stroke, TextWrapMode, TextureHandle, Ui, UiBuilder, Vec2, Widget, WidgetInfo, WidgetText, WidgetType};
 use web_sys::{window, Url};
 
-pub struct Project {
-    slug: String,
-    title: String,
-    description: String,
-    tags: Vec<String>,
-    thumbnail: Option<TextureHandle>, // Store the thumbnail as a TextureHandle directly
-}
+use crate::data::{ProjectHighlight, Skill};
 
 /// A button widget with an optional underline. Copies main structure from original `egui::Button`
 #[must_use = "You should put this widget in a ui with `ui.add(widget);`"]
@@ -339,7 +333,7 @@ impl Widget for ButtonWithUnderline<'_> {
 /// - `color`: The background color of the skill card.
 /// - `text_color`: The text color of the skill name.
 /// - `max_pos`: The maximum position for the skill card.
-pub fn skill_frameplate(ui: &mut Ui, skill: &str, color: Color32, text_color: Color32) -> () {
+pub fn skill_frameplate(ui: &mut Ui, skill: &str, color: Color32, text_color: Color32, font_size: f32) -> () {
     let frame = Frame::new();
     // Make the frame's stroke a stronger version of the color given
     let stroke = Stroke::new(2.0, color.blend(Color32::from_black_alpha(100)));
@@ -359,7 +353,7 @@ pub fn skill_frameplate(ui: &mut Ui, skill: &str, color: Color32, text_color: Co
         .begin(ui);
     {
         frame_ui.content_ui.style_mut().wrap_mode = Some(TextWrapMode::Extend);
-        frame_ui.content_ui.label(egui::RichText::new(skill).color(text_color));
+        frame_ui.content_ui.label(egui::RichText::new(skill).color(text_color).font(FontId::new(font_size, egui::FontFamily::Proportional)));
     }
     frame_ui.paint(ui);
     let _ = frame_ui.allocate_space(ui);
@@ -371,7 +365,7 @@ pub fn skill_frameplate(ui: &mut Ui, skill: &str, color: Color32, text_color: Co
 /// - `display`: The text to display for the link.
 /// - `link`: The URL to open when the link is clicked.
 /// - `icon`: An optional path to an icon to display next to the link.
-pub fn socials(ui: &mut Ui, display: &str, link: &str, icon: &Option<String>) {
+pub fn socials(ui: &mut Ui, display: &str, link: &str, icon: &Option<String>, font_size: f32) {
     let frame = Frame::new();
     let response = ui.scope_builder(
     UiBuilder::new()
@@ -390,7 +384,7 @@ pub fn socials(ui: &mut Ui, display: &str, link: &str, icon: &Option<String>) {
                     }
                     let base_text_color = ui.visuals().text_color();
                     ui.style_mut().interaction.selectable_labels = false;
-                    ui.label(egui::RichText::new(display).color(base_text_color.blend(Color32::from_rgb(base_text_color.r(), base_text_color.g(), 255))));
+                    ui.label(egui::RichText::new(display).color(base_text_color.blend(Color32::from_rgb(base_text_color.r(), base_text_color.g(), 255))).font(FontId::new(font_size, egui::FontFamily::Proportional)));
                 });
             }
             let response = frame_ui.allocate_space(ui);
@@ -484,4 +478,24 @@ pub fn paint_angular_gradient(
     mesh.indices.extend_from_slice(&[0, 1, 2, 0, 2, 3]);
     mesh.vertices = vertices;
     painter.add(mesh);
+}
+
+pub fn add_highlighted_project(ui: &mut egui::Ui, ctx: &egui::Context, root_url: &String, project: &mut ProjectHighlight) {
+    Frame::group(ui.style()).stroke(Stroke::NONE).fill(Color32::TRANSPARENT).outer_margin(Margin::symmetric(8, 4)).show(ui, |ui| {
+        ui.with_layout(egui::Layout::top_down(egui::Align::LEFT), |ui| {
+            ui.horizontal(|ui| {
+                if let Some(thumbnail) = project.get_set_thumbnail(root_url, ctx) {
+                    ui.add(Image::new(thumbnail).fit_to_exact_size(Vec2::new(100.0, 100.0)).corner_radius(2.0));
+                } else {
+                    ui.label("No thumbnail available");
+                }
+                ui.vertical(|ui| {
+                    ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Wrap);
+                    ui.label(&project.title);
+                    ui.monospace(&project.description);
+                });
+            });
+        });
+    });
+
 }
