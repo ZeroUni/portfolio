@@ -23,6 +23,8 @@ pub struct ProjectHighlight {
     pub description: String,
     pub tags: Vec<Skill>,
     thumbnail_path: String,
+    pub external_link: String,
+    pub highlight_imgs: Vec<String>,
     #[serde(skip)]
     pub thumbnail: Option<SizedTexture>, // Store the thumbnail as a SizedTexture directly
 }
@@ -72,6 +74,7 @@ impl fmt::Debug for ProjectHighlight {
             .field("title", &self.title)
             .field("description", &self.description)
             .field("tags", &self.tags)
+            .field("external_link", &self.external_link)
             .field("thumbnail_path", &self.thumbnail_path)
             .finish()
     }
@@ -83,6 +86,8 @@ impl ProjectHighlight {
         title: String,
         description: String,
         tags: Vec<Skill>,
+        external_link: String,
+        highlight_imgs: Vec<String>,
         thumbnail_path: String,
     ) -> Self {
         Self {
@@ -90,7 +95,9 @@ impl ProjectHighlight {
             title,
             description,
             tags,
+            external_link,
             thumbnail: None,
+            highlight_imgs: highlight_imgs,
             thumbnail_path,
         }
     }

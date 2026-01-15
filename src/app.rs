@@ -1,7 +1,8 @@
 use std::{collections::HashMap, f32::consts::PI, vec};
 
-use egui::{include_image, panel::TopBottomSide, pos2, vec2, Align, AtomExt, Color32, Frame, Id, ImageSource, Label, Mesh, Rect, Scene, Sense, Stroke, Style, Theme, UiBuilder};
-use web_sys::{window};
+use egui::{include_image, panel::TopBottomSide, pos2, vec2, Align, AtomExt, Color32, Frame, Id, ImageSource, Label, Margin, Mesh, Rect, Scene, Sense, Stroke, Style, TextWrapMode, Theme, UiBuilder};
+use serde::de;
+use web_sys::window;
 
 use crate::{data::{Data, ProjectHighlight, Skill}, elements::{add_highlighted_project, paint_angular_gradient, skill_frameplate, socials, ButtonWithUnderline}};
 
@@ -13,7 +14,7 @@ pub struct TemplateApp {
     #[serde(skip)]
     scene_rect: egui::Rect,
     #[serde(skip)]
-    root_url: Option<String>,
+    root_url: String,
     #[serde(skip)]
     animations: HashMap<Id, (AnimateDirection, f32)>, // Map of animations by their ID, as well as their direction and progress
     #[serde(skip)]
@@ -251,14 +252,24 @@ impl eframe::App for TemplateApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         // Put your widgets into a `SidePanel`, `TopBottomPanel`, `CentralPanel`, `Window` or `Area`.
         // For inspiration and more examples, go to https://emilk.github.io/egui
-        let screen_width = ctx.screen_rect().width();
-        let screen_size: ScreenSize = if screen_width < 640.0 {
+        let screen_width = ctx.screen_rect().width() * ctx.zoom_factor();
+        let screen_size: ScreenSize = if screen_width < 768.0 {
             ScreenSize::Small
-        } else if screen_width < 768.0 {
+        } else if screen_width < 1028.0 {
             ScreenSize::Medium
         } else {
             ScreenSize::Large
         };
+
+        log::debug!("Screen size: {:?}, zoom factor: {:?}, Screen Width: {:?}", screen_size, ctx.zoom_factor(), screen_width);
+
+        if screen_size.to_u8() == 1 && ctx.zoom_factor().ne(&(screen_width / 768.0)) {
+            // Normalize screen to 768 px
+            ctx.set_zoom_factor(screen_width / 768.0);
+            ctx.request_repaint();
+        } else if screen_size.to_u8() != 1 {
+            ctx.set_zoom_factor(1.0);
+        }
 
         let panel_location = match screen_size {
             ScreenSize::Small => TopBottomSide::Bottom,
@@ -287,12 +298,10 @@ impl eframe::App for TemplateApp {
         egui::TopBottomPanel::new(panel_location, "top_panel").frame(menu_frame).show(ctx, |ui| {
             egui::MenuBar::new().ui(ui, |ui| {
                 ui.add_space(8.0);
-                if let Some(root_url) = &self.root_url {
-                    ui.add(
-                        egui::Image::new(ImageSource::Uri(format!("{}/assets/croissant.png", root_url).into())).maintain_aspect_ratio(false)
-                        .fit_to_exact_size(vec2(48.0, 48.0)).corner_radius(32.0)
-                    );
-                }
+                ui.add(
+                    egui::Image::new(ImageSource::Uri(format!("{}/assets/croissant.png", &self.root_url).into())).maintain_aspect_ratio(false)
+                    .fit_to_exact_size(vec2(48.0, 48.0)).corner_radius(32.0)
+                );
                 ui.add_space(20.0);
 
                 let animation_value = 1.0 - self.animations.entry(Id::new("portfolio_button"))
@@ -322,6 +331,15 @@ impl eframe::App for TemplateApp {
                         *progress = ctx.animate_value_with_time(Id::new("portfolio_button"), 0.0, 0.2);
                     }
                 }
+                ui.add_space(8.0);
+                
+                #[cfg(debug_assertions)]
+                {
+                    let debug_button = ui.add(ButtonWithUnderline::new(egui::RichText::new("Debug").font(egui::FontId::new(20.0, egui::FontFamily::Proportional))).frame(false).inset([8.0, 8.0]));
+                    if debug_button.clicked() {
+                        ctx.set_debug_on_hover(!ctx.debug_on_hover());
+                    }
+                }
                 
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     ui.add_space(10.0);
@@ -336,9 +354,6 @@ impl eframe::App for TemplateApp {
                 });
             });
         });
-
-        ctx.set_debug_on_hover(true);
-
 
         egui::CentralPanel::default().show(ctx, |ui| {
             let bg_painter = ctx.layer_painter(egui::LayerId::background());
@@ -364,64 +379,99 @@ impl eframe::App for TemplateApp {
 
                         let main_info = Frame::group(ui.style()).stroke(Stroke::NONE);
                         let main_space = main_info.show(ui, |ui| {
-                            let opener = ui.horizontal(|ui| {
-                                ui.vertical(|ui| {
-                                    ui.add_space(16.0);
-                                    ui.label(
-                                        egui::RichText::new("ZeroUni").font(egui::FontId::new(get_font_size(&screen_size, 4), egui::FontFamily::Proportional)).strong()
-                                    );
-                                });
-                                ui.vertical(|ui| {
-                                    ui.label(
-                                        egui::RichText::new("Fullstack developer / backend enthusiast").font(egui::FontId::new(get_font_size(&screen_size, 1), egui::FontFamily::Proportional)).strong()
-                                    );
-                                    socials(ui, "github/@ZeroUni", "https://github.com/ZeroUni", &None, get_font_size(&screen_size, 1));
-                                    socials(ui, "linkedin/@ZeroUni", "https://www.linkedin.com/in/ZeroUni", &None, get_font_size(&screen_size, 1));
-                                });
-                            }).response;
-                            
-                            ui.horizontal_wrapped(|ui| {
-                                ui.set_max_width(opener.rect.width());
-                                for skill in self.data.skills() {
-                                    skill_frameplate(ui, &skill.name, skill.color(), skill.text_color(), get_font_size(&screen_size, 0));
-                                }
-                            });
-
                             ui.horizontal(|ui| {
-                                ui.visuals_mut().hyperlink_color = Color32::from_rgb(128, 36, 133);
-                                ui.add(egui::github_link_file!(
-                                    "https://github.com/ZeroUni/portfolio/blob/main/",
-                                    "Source Code"
-                                ).open_in_new_tab(true));
-                                ui.visuals_mut().hyperlink_color = Color32::from_rgb(98, 36, 208);
-                                ui.add(egui::github_link_file!(
-                                    "https://github.com/emilk/eframe_template/blob/main/",
-                                    "[egui]"
-                                ).open_in_new_tab(true));
+                                ui.add(egui::Image::new(self.root_url.to_owned() + "/assets/pride-flag.gif").fit_to_original_size(0.3));
+                                ui.add_space(16.0);
+                                ui.vertical(|ui| {
+                                    let mut opener = egui::Frame::group(ui.style()).stroke(Stroke::NONE).fill(Color32::TRANSPARENT).inner_margin(Margin::same(4)).outer_margin(Margin::same(0)).corner_radius(2).begin(ui);
+                                    {
+                                        opener.content_ui.horizontal(|ui| {
+                                            ui.vertical(|ui| {
+                                                ui.add_space(16.0);
+                                                ui.label(
+                                                    egui::RichText::new("ZeroUni").font(egui::FontId::new(get_font_size(&screen_size, 4), egui::FontFamily::Proportional)).strong()
+                                                );
+                                            });
+                                            ui.add_space(8.0);
+                                            ui.vertical(|ui| {
+                                                ui.label(
+                                                    egui::RichText::new("Fullstack developer / backend enthusiast").font(egui::FontId::new(get_font_size(&screen_size, 1), egui::FontFamily::Proportional)).strong()
+                                                );
+                                                socials(ui, "github/@ZeroUni", "https://github.com/ZeroUni", &None, get_font_size(&screen_size, 1));
+                                                socials(ui, "linkedin/@ZeroUni", "https://www.linkedin.com/in/ZeroUni", &None, get_font_size(&screen_size, 1));
+                                            });
+                                        });
+                                    }
+                                    let opening_rect = opener.allocate_space(ui).rect;
+                                    // Paint a transparent gray gradient before painting the contents
+                                    paint_angular_gradient(ui.painter(), opening_rect.expand2(vec2(8.0, 0.0)), Color32::from_rgba_unmultiplied(100, 100, 100, 50), Color32::TRANSPARENT, 1., vec2(2.0, 0.8));
+                                    opener.paint(ui);
+
+                                    ui.horizontal_wrapped(|ui| {
+                                        ui.set_max_width(opening_rect.width());
+                                        for skill in self.data.skills() {
+                                            skill_frameplate(ui, &skill.name, skill.color(), skill.text_color(), get_font_size(&screen_size, 0));
+                                        }
+                                    });
+
+                                    ui.horizontal(|ui| {
+                                        ui.visuals_mut().hyperlink_color = Color32::from_rgb(128, 36, 133);
+                                        ui.add(egui::github_link_file!(
+                                            "https://github.com/ZeroUni/portfolio/blob/main/",
+                                            "Source Code"
+                                        ).open_in_new_tab(true));
+                                        ui.visuals_mut().hyperlink_color = Color32::from_rgb(98, 36, 208);
+                                        ui.add(egui::github_link_file!(
+                                            "https://github.com/emilk/eframe_template/blob/main/",
+                                            "[egui]"
+                                        ).open_in_new_tab(true));
+                                    });
+                                });
                             });
                         }).response.rect;
 
                         let (highlight_space, highlight_layout) = match screen_size {
-                            ScreenSize::Small => (ui.allocate_rect(Rect::from_min_size(main_space.left_bottom() + vec2(0.0, 16.0), vec2(ui.available_width(), 200.0)), Sense::click()),
+                            ScreenSize::Small | ScreenSize::Medium => (ui.allocate_rect(Rect::from_min_size(main_space.left_bottom() + vec2(0.0, 16.0), vec2(ui.available_width(), 200.0)), Sense::click()),
                             egui::Layout::top_down(egui::Align::LEFT)),
-                            ScreenSize::Medium | ScreenSize::Large => (ui.allocate_rect(Rect::from_min_size(main_space.right_top() + vec2(8.0, 0.0), vec2(ui.max_rect().width() - main_space.width() - 8.0, 200.0)), Sense::hover()),
+                            ScreenSize::Large => (ui.allocate_rect(Rect::from_min_size(main_space.right_top() + vec2(8.0, 0.0), vec2(ui.max_rect().width() - main_space.width() - 8.0, 200.0)), Sense::hover()),
                             egui::Layout::top_down(egui::Align::Max)),
                         };
 
                         ui.scope_builder(egui::UiBuilder::default().max_rect(highlight_space.rect).sense(Sense::click()).layout(highlight_layout), |ui| {
-                            let outer_frame = egui::Frame::group(ui.style()).fill(Color32::from_gray(100).blend(ui.visuals().extreme_bg_color.gamma_multiply_u8(200))).outer_margin(egui::Margin::symmetric(8, 0));
+                            let outer_frame = egui::Frame::group(ui.style()).fill(Color32::from_gray(40).gamma_multiply_u8(127).blend(ui.visuals().extreme_bg_color.gamma_multiply_u8(100))).outer_margin(egui::Margin::symmetric(8, 0));
                             outer_frame.show(ui, |ui| {
                                 ui.horizontal(|ui| {
-                                    ui.set_max_width(600.0_f32.min(highlight_space.rect.width()) - 16.0);
-                                    ui.with_layout(egui::Layout::top_down(egui::Align::LEFT), |ui| {
+                                    ui.set_max_width(800.0_f32.min(highlight_space.rect.width()) - 16.0);
+                                    ui.with_layout(egui::Layout::left_to_right(egui::Align::TOP), |ui| {
+                                        ui.add_space(12.0);
                                         ui.heading(egui::RichText::new("Highlights").underline());
                                     });
                                 });
-                                let root_url = self.root_url.clone().unwrap_or_default();
-                                ui.set_max_width(800.0_f32.min(highlight_space.rect.width()) - 16.0);
-                                for project in self.data.project_highlights_mut() {
+                                let root_url = self.root_url.to_owned();
+                                ui.set_max_width(1100.0_f32.min(highlight_space.rect.width()) - 16.0);
+                                let max_len = self.data.project_highlights().len() - 1;
+                                for (idx, project) in self.data.project_highlights_mut().iter_mut().enumerate() {
                                     add_highlighted_project(ui, ctx, &root_url, project);
+                                    ui.add_space(8.0);
+                                    if idx < max_len {
+                                        ui.separator();
+                                        ui.add_space(8.0);
+                                    }
                                 }
+                            });
+                        });
+
+                        let contact_frame = egui::Frame::group(ui.style())
+                            .fill(Color32::from_gray(40).gamma_multiply_u8(127).blend(ui.visuals().extreme_bg_color.gamma_multiply_u8(100)))
+                            .outer_margin(egui::Margin::symmetric(8, 4));
+                        
+                        contact_frame.show(ui, |ui| {
+                            ui.horizontal(|ui| {
+                                ui.set_max_width(main_space.width());
+                                ui.with_layout(egui::Layout::left_to_right(egui::Align::TOP), |ui| {
+                                    ui.heading(egui::RichText::new("Contact Me:").underline());
+                                });
+                                ui.hyperlink_to("[email]", "mailto:zd.muhs@gmail.com");
                             });
                         });
 
@@ -460,6 +510,7 @@ fn powered_by_egui_and_eframe(ui: &mut egui::Ui) {
 }
 
 #[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ScreenSize {
     Small = 1,
     Medium = 2,
@@ -499,8 +550,8 @@ enum AnimateDirection {
     Out,
 }
 
-pub fn get_base_url() -> Option<String> {
-    window().and_then(|win| win.location().origin().ok())
+pub fn get_base_url() -> String {
+    window().and_then(|win| win.location().origin().ok()).unwrap_or("".to_string())
 }
 
 /// Get the font size for a specific screen size and paragraph type.

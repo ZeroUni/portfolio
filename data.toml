@@ -49,8 +49,26 @@ rgb = [0, 0, 255]
 text_rgb = [255, 255, 255]
 
 [[project_highlights]]
-slug = "my-first-project"
-title = "My First Project"
-description = "A brief description of my first project."
-tags = [{ name = "rust", rgb = [211, 69, 22], text_rgb = [255, 255, 255] }]
-thumbnail_path = "/assets/croissant.png"
+slug = "rust-maps"
+title = "Rust Maps"
+external_link = "https://github.com/ZeroUni/tripsavvy"
+description = "Rust Maps is an interactive mapping application written in Rust. It features a zoomable, draggable map rendered using raster tiles with caching support. The project provides a foundation for interactive map exploration and sets the stage for future enhancements such as integrating geo metadata (e.g. locations, cities) via the Mapbox API."
+tags = [{ name = "rust", rgb = [211, 69, 22], text_rgb = [255, 255, 255] }, { name = "OSM", rgb = [0, 0, 0], text_rgb = [255, 255, 255] }, { name = "concurrency", rgb = [0, 128, 0], text_rgb = [255, 255, 255] }]
+thumbnail_path = "/assets/Rust-Maps.png"
+highlight_imgs = [
+    "/assets/Unstyled_Wrapping.png",
+    "/assets/Raster-Zoomed.png",
+]
+
+[[project_highlights]]
+slug = "codewithjess"
+title = "Code With Jess"
+external_link = "https://www.codewithjess.dev"
+description = "Originally developed in a 48 hour hackathon, Code With Jess creates a user-friendly learning environment with step by step learning plans and exercises using AI to curate each plan to its user. With in-editor help and active terminal use with instant REPL access to the learning environment to quickly understand what happens in every iteration."
+tags = [{ name = "react", rgb = [0, 128, 255], text_rgb = [35, 39, 47] }, { name = "express", rgb = [0, 0, 0], text_rgb = [255, 255, 255] }, { name = "typescript", rgb = [49, 120, 198], text_rgb = [255, 255, 255] }, { name = "postgreSQL", rgb = [0, 0, 0], text_rgb = [255, 255, 255] }]
+thumbnail_path = "/assets/codewithjess.png"
+highlight_imgs = [
+    "/assets/codewithjess-editor.webp",
+    "/assets/codewithjess-highlight-help.webp",
+    "/assets/codewithjess-plans.webp",
+]

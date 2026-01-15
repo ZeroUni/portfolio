@@ -1,5 +1,8 @@
-use egui::{emath, epaint, frame::Prepared, lerp, text::Fonts, text_selection::visuals, Atom, AtomKind, AtomLayout, AtomLayoutResponse, Color32, CornerRadius, FontId, Frame, Galley, Image, IntoAtoms, Margin, Mesh, Painter, Pos2, Rect, Response, Rgba, Sense, Stroke, TextWrapMode, TextureHandle, Ui, UiBuilder, Vec2, Widget, WidgetInfo, WidgetText, WidgetType};
+use std::vec;
+
+use egui::{emath, epaint, frame::Prepared, lerp, modal, pos2, text::Fonts, text_selection::visuals, vec2, Atom, AtomKind, AtomLayout, AtomLayoutResponse, Button, Color32, CornerRadius, FontId, Frame, Galley, Image, IntoAtoms, Margin, Mesh, Painter, Pos2, Rect, Response, Rgba, Sense, Stroke, TextWrapMode, TextureHandle, Ui, UiBuilder, Vec2, Widget, WidgetInfo, WidgetText, WidgetType};
 use web_sys::{window, Url};
+use std::collections::HashMap;
 
 use crate::data::{ProjectHighlight, Skill};
 
@@ -396,14 +399,7 @@ pub fn socials(ui: &mut Ui, display: &str, link: &str, icon: &Option<String>, fo
         },
     );
     if response.response.clicked() {
-        if let Ok(_) = Url::new(link) { // Verifies valid link parsing
-            if let Some(window) = window() {
-                // Uses the link directly anyway since its been validated
-                let _ = window.open_with_url_and_target(link, "_blank");
-            }
-        } else {
-            log::debug!("Invalid URL: {}", link);
-        }
+        open_link(link, "_blank");
     }
     if response.response.hovered() {
         ui.output_mut(|o| o.cursor_icon = egui::CursorIcon::PointingHand);
@@ -483,19 +479,131 @@ pub fn paint_angular_gradient(
 pub fn add_highlighted_project(ui: &mut egui::Ui, ctx: &egui::Context, root_url: &String, project: &mut ProjectHighlight) {
     Frame::group(ui.style()).stroke(Stroke::NONE).fill(Color32::TRANSPARENT).outer_margin(Margin::symmetric(8, 4)).show(ui, |ui| {
         ui.with_layout(egui::Layout::top_down(egui::Align::LEFT), |ui| {
-            ui.horizontal(|ui| {
+            let mut img_rect = Rect::NOTHING;
+            let main_response = ui.horizontal(|ui| {
                 if let Some(thumbnail) = project.get_set_thumbnail(root_url, ctx) {
-                    ui.add(Image::new(thumbnail).fit_to_exact_size(Vec2::new(100.0, 100.0)).corner_radius(2.0));
+                    let img_response = ui.add(Button::image(Image::new(thumbnail).fit_to_exact_size(Vec2::new(128.0, 128.0)).corner_radius(2.0)));
+                    img_rect = img_response.rect;
+                    if img_response.clicked() {
+                        open_link(&project.external_link, "_blank");
+                    }
                 } else {
                     ui.label("No thumbnail available");
                 }
                 ui.vertical(|ui| {
-                    ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Wrap);
-                    ui.label(&project.title);
+                    ui.style_mut().wrap_mode = Some(TextWrapMode::Wrap);
+                    ui.heading(&project.title);
+                    ui.horizontal(|ui| {
+                        for tag in &project.tags {
+                            skill_frameplate(ui, &tag.name, tag.color(), tag.text_color(), 12.0);
+                        }
+                    });
                     ui.monospace(&project.description);
                 });
-            });
+            }).response;
+            // If img_rect has been assigned, draw a corner line down from the bottom center of the image
+            if img_rect.ne(&Rect::NOTHING) && project.highlight_imgs.len() > 0 {
+                let top_color = Color32::from_rgba_unmultiplied(94, 84, 142, 127);
+                let line_start = img_rect.center_bottom();
+                let vertical_end = pos2(img_rect.center().x, main_response.rect.bottom() + 66.0);
+                let horizontal_end = vertical_end + Vec2::new(64.0, 0.0);
+                ui.painter().line_segment([line_start, vertical_end], (3.0, ui.visuals().extreme_bg_color.blend(top_color)));
+                ui.painter().line_segment([vertical_end, horizontal_end], (3.0, ui.visuals().extreme_bg_color.blend(top_color)));
+                ui.painter().line_segment([line_start, vertical_end], (1.0, Color32::from_gray(40)));
+                ui.painter().line_segment([vertical_end, horizontal_end], (1.0, Color32::from_gray(40)));
+                ui.add_space(12.0);
+                ui.horizontal(|ui| {
+                    ui.add_space(144.0);
+                    ui.spacing_mut().item_spacing = vec2(12.0, 0.0);
+                    let persistent_id = ui.make_persistent_id(format!("highlight_{}_{}", project.title, project.highlight_imgs.len()));
+                    let some_modal_shown = ui.data(|data| data.get_temp(persistent_id)).unwrap_or(project.highlight_imgs.len());
+                    if some_modal_shown < project.highlight_imgs.len() {
+                        show_modal(ctx, ui, project.highlight_imgs.len(), some_modal_shown, &project.title, &(root_url.to_owned() + &project.highlight_imgs[some_modal_shown]), persistent_id);
+                    }
+                    for (idx, img_path) in project.highlight_imgs.iter().enumerate() {
+                        let image = Image::new(root_url.to_owned() + img_path).maintain_aspect_ratio(true).max_size(vec2(500.0, 112.0)).corner_radius(2.0);
+                        let size = image.calc_size(vec2(500.0, 500.0), None);
+                        let (image_rect, image_response) = ui.allocate_at_least(size, Sense::click());
+                        let hovered = image_response.hovered();
+                        // Image::new(root_url.to_owned() + img_path).fit_to_exact_size(Vec2::new(112.0 + 24.0 * f32::from(hovered), 112.0 + 24.0 * f32::from(hovered))).corner_radius(2.0)
+                        image.max_height(112.0 + 24.0 * f32::from(hovered)).paint_at(ui, image_rect.expand(12.0 * f32::from(hovered)).translate(vec2(8.0 * f32::from(hovered), 0.0)));
+                        if hovered {ui.add_space(16.0);}
+                        if image_response.clicked() {
+                            ui.data_mut(|data| {
+                                data.insert_persisted(persistent_id, idx);
+                            });
+                        }
+                        let should_show = ui.data(|data| {
+                            data.get_temp(persistent_id)
+                        }).unwrap_or(project.highlight_imgs.len()) == idx;
+                    }
+                });
+            }
         });
     });
 
+}
+
+pub fn show_modal(ctx: &egui::Context, ui: &egui::Ui, len: usize, idx: usize, title: &String, img_path: &String, id: egui::Id) {
+    let image = Image::new(img_path).maintain_aspect_ratio(true).fit_to_original_size(2.).corner_radius(4);
+    let frame = Frame::group(&ctx.style()).stroke(Stroke::NONE).fill(Color32::from_black_alpha(200)).inner_margin(Margin::symmetric(16, 16));
+    let modal_response = egui::Modal::new(id).frame(frame).show(ctx, |ui| {
+        let maximum_size = ctx.screen_rect().size() - vec2(32.0, 32.0);
+        ui.add(image.max_size(vec2(1000.0_f32.min(maximum_size.x), 800.0_f32.min(maximum_size.y))));
+        // Paint a little gallery index preview
+        ui.horizontal_top(|ui| {
+            let max_width = ui.available_size_before_wrap().x;
+            let spacing = 6.0_f32;
+            let max_items = (max_width / (16.0 + spacing));
+            let first_item_offset = (max_items - len as f32) / 2.0_f32;
+            ui.add_space(first_item_offset * (16.0 + spacing));
+            for i in 0..len {
+                let is_selected = i == idx;
+                let (area, response) = ui.allocate_at_least(vec2(16.0, 16.0), Sense::click());
+                let color = if is_selected {
+                    Color32::from_rgba_unmultiplied(200, 200, 200, 200)
+                } else {
+                    Color32::from_rgba_unmultiplied(140, 140, 140, 127)
+                };
+                let preview_shape = egui::Shape::circle_filled(area.center(), 7.0, color);
+                ui.painter().add(preview_shape);
+            }
+            if len > 1 {
+                let to_next = ui.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::ArrowRight));
+                let to_prev = !to_next && ui.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::ArrowLeft));
+                match (to_next, to_prev) {
+                    (true, false) => {
+                        // Go to next image
+                        ui.data_mut(|data| {
+                            data.insert_persisted(id, (idx + 1) % len);
+                        });
+                    }
+                    (false, true) => {
+                        // Go to previous image
+                        ui.data_mut(|data| {
+                            data.insert_persisted(id, (idx + len - 1) % len);
+                        });
+                    }
+                    _ => {}
+                }
+            }
+
+        });
+    });
+    if modal_response.should_close() {
+        ui.data_mut(|data| {
+            data.insert_persisted(id, len);
+        });
+    }
+}
+
+fn open_link(link: &str, target: &str) {
+    if let Ok(_) = Url::new(link) { // Verifies valid link parsing
+        if let Some(window) = window() {
+            // Uses the link directly anyway since its been validated
+            let _ = window.open_with_url_and_target(link, target);
+        }
+    } else {
+        log::debug!("Invalid URL: {}", link);
+    }
 }
