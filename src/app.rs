@@ -551,7 +551,10 @@ enum AnimateDirection {
 }
 
 pub fn get_base_url() -> String {
-    window().and_then(|win| win.location().origin().ok()).unwrap_or("".to_string())
+    window()
+        .and_then(|win| win.document())
+        .and_then(|doc| doc.base_uri().ok().flatten())
+        .unwrap_or_else(|| "".to_string())
 }
 
 /// Get the font size for a specific screen size and paragraph type.
